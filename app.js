@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.1';
+export const APP_VERSION = '1.5.2';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -193,12 +193,12 @@ function vHoy(T) {
     if (open) {
       h += `<div class="items" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
-        const pl = m.planned[i];
+        const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 12 : 5);
-        h += `<div class="it" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
+        h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
-      h += `<div class="sub">Cantidades reales (unidades o gramos). Guardar la marca como comida; el plan original se conserva.</div>
+      h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
         <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="number" inputmode="decimal" placeholder="g" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
@@ -427,7 +427,11 @@ document.addEventListener('click', async e => {
       const m = dv().meals.find(x => x.id === el.dataset.m); const card = el.closest('.card');
       const items = m.actualItems.map((it, i) => ({ ...it }));
       card.querySelectorAll('[data-f]').forEach(inp => { const i = +inp.dataset.i; if (inp.dataset.f === 'qty') items[i].qty = parseFloat(inp.value.replace(',', '.')) || 0; else items[i].foodId = inp.value; });
-      const changedFood = items.some((it, i) => it.foodId !== m.planned[i].foodId);
+      card.querySelectorAll('.swipe.gone').forEach(r => { items[+r.dataset.i].qty = 0; });
+      const changedFood = m.status === 'replaced' || items.some((it, i) => it.foodId !== m.actualItems[i].foodId);
+      const kept = items.filter(it => it.qty > 0);
+      if (!kept.length) { UI.open[d + m.id] = false; await emit('MEAL_SET', { date: d, mealId: m.id, status: 'skipped' }); toast('Sin ingredientes: marcada como no comida'); break; }
+      items.length = 0; items.push(...kept);
       UI.open[d + m.id] = false;
       await emit('MEAL_SET', { date: d, mealId: m.id, status: changedFood ? 'replaced' : 'edited', items }); toast('Guardado'); break; }
     case 'skipMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); break;
@@ -530,6 +534,16 @@ document.addEventListener('change', async e => {
     await emitMany(list); toast(`${list.length} mediciones importadas`);
   }
 });
+
+// ---------- deslizar para quitar ingrediente ----------
+let SW = null;
+document.addEventListener('touchstart', e => { const r = e.target.closest('.swipe'); if (!r || e.target.closest('input,select,button')) return; SW = { r, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null }; }, { passive: true });
+document.addEventListener('touchmove', e => { if (!SW) return; const t = e.touches[0]; const dx = t.clientX - SW.x, dy = t.clientY - SW.y;
+  if (SW.lock === null && Math.abs(dx) + Math.abs(dy) > 8) SW.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+  if (SW.lock !== 'x') return; SW.dx = Math.min(0, dx); SW.r.style.transition = 'none'; SW.r.style.transform = `translateX(${SW.dx}px)`; SW.r.style.opacity = String(1 + SW.dx / 300); }, { passive: true });
+document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } = SW; SW = null; r.style.transition = 'transform .25s, opacity .25s';
+  if (dx < -90) { r.style.transform = 'translateX(-110%)'; r.style.opacity = '0'; setTimeout(() => { r.classList.add('gone'); r.style.display = 'none'; }, 250); toast('Ingrediente quitado · tocá Guardar'); }
+  else { r.style.transform = ''; r.style.opacity = ''; } });
 
 // ---------- arranque ----------
 async function boot() {
