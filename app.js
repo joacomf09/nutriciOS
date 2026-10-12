@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -100,11 +100,22 @@ function vHoy(T) {
   h += `<div class="card"><div class="row sp"><div><h3>Peso en ayunas</h3><div class="sub">${todayW.length ? todayW.map(w => `${w.kg} kg${w.fatPct != null ? ' · ' + w.fatPct + ' %' : ''}`).join(' · ') : 'Opcional a diario; también se carga el lunes.'}</div></div>
     <div class="row" style="width:150px"><input id="wkg" type="number" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
   // totales
-  const pct = Math.min(100, dv.eatenConfirmed.kcal / dv.target.kcal * 100);
-  const ring = (() => { const C = 2 * Math.PI * 44, f = Math.min(1, pct / 100); return `<svg class="ring" width="104" height="104" viewBox="0 0 104 104" aria-hidden="true"><circle cx="52" cy="52" r="44" fill="none" stroke="var(--line)" stroke-width="10"/><circle cx="52" cy="52" r="44" fill="none" stroke="var(--acc)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C * f} ${C}" transform="rotate(-90 52 52)"/></svg>`; })();
-  h += `<div class="card"><div class="row" style="gap:16px">${ring}<div class="grow"><div class="sub">Comido</div><div class="big">${r0(dv.eatenConfirmed.kcal)} <small class="m">/ ${r0(dv.target.kcal)} kcal</small></div><div class="sub">Proyectado: ${r0(dv.actual.kcal)}</div></div>
-    <div class="sub num cond" style="text-align:right;font-size:15px">P ${r0(dv.eatenConfirmed.p)} g<br>C ${r0(dv.eatenConfirmed.c)} g<br>G ${r0(dv.eatenConfirmed.f)} g</div></div>
-    ${dv.close ? `<div class="sub" style="margin-top:6px">Día cerrado: ${{ all_plan: 'todo según plan', with_changes: 'con cambios', not_logged: 'no registrado' }[dv.close.answer]} <button class="s" data-a="reopen" data-d="${d}">reabrir</button></div>` : ''}</div>`;
+  const off_ = st => !['confirmed', 'edited', 'replaced'].includes(st);
+    const E_ = dv.eatenConfirmed, TG = dv.target;
+  const arc = (r, f, col) => { const C = 2 * Math.PI * r; return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-opacity=".18" stroke-width="9"/><circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * Math.min(1, f)} ${C}" transform="rotate(-90 70 70)"/>`; };
+  const ring = `<svg class="ring" width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Progreso de calorías y macros">${arc(62, E_.kcal / TG.kcal, 'var(--acc)')}${arc(50, E_.p / TG.p, 'var(--p)')}${arc(38, E_.c / TG.c, 'var(--c)')}${arc(26, E_.f / TG.f, 'var(--f)')}</svg>`;
+  const tile = (lab, a, b, col) => `<div><div class="sub" style="font-size:12px">${lab}</div><div class="cond" style="font-size:22px;font-weight:700;color:${col}">${r0(a)}<span class="sub" style="font-size:13px"> /${r0(b)}</span></div></div>`;
+  h += `<div class="card"><div class="row" style="gap:14px;align-items:center">${ring}<div class="grow" style="display:grid;gap:6px">${tile('KCAL', E_.kcal, TG.kcal, 'var(--acc)')}${tile('PROT g', E_.p, TG.p, 'var(--p)')}${tile('CARB g', E_.c, TG.c, 'var(--c)')}${tile('GRASA g', E_.f, TG.f, 'var(--f)')}</div></div>
+    <div class="sub" style="margin-top:8px">Proyectado si comés lo pendiente: ${r0(dv.actual.kcal)} kcal</div>`;
+  // gráfico por comidas: barras apiladas por macro (kcal), pendientes atenuadas
+  { const ms = dv.meals.map(m => { const t = ['skipped', 'unknown'].includes(m.status) ? m.plannedTot : m.actualTot; return { m, t, done: !off_(m.status), skip: ['skipped', 'unknown'].includes(m.status) }; });
+    const mx = Math.max(...ms.map(x => x.t.kcal), 1), avg = TG.kcal / ms.length, W = 350, bw = W / ms.length - 10;
+    const bars = ms.map((x, i) => { const X = 5 + i * (bw + 10); let y = 120; const seg = (k, col) => { const hgt = k / mx * 104; y -= hgt; return `<rect x="${X}" y="${y}" width="${bw}" height="${hgt}" fill="${col}" ${x.done ? '' : 'fill-opacity="' + (x.skip ? '.12' : '.35') + '"'}/>`; };
+      return seg(x.t.p * 4, 'var(--p)') + seg(x.t.c * 4, 'var(--c)') + seg(x.t.f * 9, 'var(--f)') + `<text x="${X + bw / 2}" y="136" text-anchor="middle" font-size="10" fill="var(--mute)">${esc(x.m.name.split(' ')[0].slice(0, 9))}</text>`; }).join('');
+    const ya = 120 - avg / mx * 104;
+    h += `<svg viewBox="0 0 360 140" width="100%" style="margin-top:10px" role="img" aria-label="Calorías por comida, apiladas por macro">${bars}<line x1="0" x2="360" y1="${ya}" y2="${ya}" stroke="var(--ink)" stroke-opacity=".6" stroke-dasharray="3 4"/></svg>
+    <div class="row" style="gap:12px;font-size:12px;color:var(--mute)"><span><i class="dot" style="background:var(--p)"></i>Prot</span><span><i class="dot" style="background:var(--c)"></i>Carb</span><span><i class="dot" style="background:var(--f)"></i>Grasa</span><span>· · · media por comida</span></div>`; }
+  h += `${dv.close ? `<div class="sub" style="margin-top:6px">Día cerrado: ${{ all_plan: 'todo según plan', with_changes: 'con cambios', not_logged: 'no registrado' }[dv.close.answer]} <button class="s" data-a="reopen" data-d="${d}">reabrir</button></div>` : ''}</div>`;
   // sugerencias
   const sug = E.redistributionSuggestion(S, d, T);
   if (d === T && !dv.close) {
@@ -132,6 +143,7 @@ function vHoy(T) {
         h += `<div class="it" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
       h += `<div class="sub">Cantidades reales (unidades o gramos). Guardar la marca como comida; el plan original se conserva.</div>
+        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="number" inputmode="decimal" placeholder="g" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
@@ -152,8 +164,9 @@ function reviewWeek(T) { // semana a revisar: la última completa
 function vPreview(T) {
   const pv = E.weekPreview(S, T); const isPrev = !Object.keys(S.reviews).length;
   const maxK = Math.max(...pv.rows.map(r => Math.max(r.target, r.eaten || 0)));
-  const bars = pv.rows.map((r, i) => { const x = 14 + i * 46, H = 110; const ht = r.target / maxK * H, he = (r.eaten || 0) / maxK * H;
-    return `<rect x="${x}" y="${130 - ht}" width="30" height="${ht}" rx="6" fill="var(--line)"/>${r.eaten ? `<rect x="${x}" y="${130 - he}" width="30" height="${he}" rx="6" fill="${r.closed || r.date === T ? 'var(--acc)' : 'var(--mute)'}"/>` : ''}<text x="${x + 15}" y="148" text-anchor="middle" font-size="11" fill="var(--mute)">${DOW[i]}</text>`; }).join('');
+  const bars = pv.rows.map((r, i) => { const x = 14 + i * 46, H = 110; const dvv = E.dayView(S, r.date, T); const mac = r.date === T ? dvv.eatenConfirmed : (r.closed ? dvv.actual : null);
+    let y = 130; const seg = (k, col) => { const hh = k / maxK * H; y -= hh; return `<rect x="${x}" y="${y}" width="30" height="${hh}" fill="${col}"/>`; };
+    return `<rect x="${x}" y="${130 - r.target / maxK * H}" width="30" height="${r.target / maxK * H}" fill="var(--line)" fill-opacity=".5"/>` + (mac ? seg(mac.p * 4, 'var(--p)') + seg(mac.c * 4, 'var(--c)') + seg(mac.f * 9, 'var(--f)') : '') + `<text x="${x + 15}" y="148" text-anchor="middle" font-size="11" fill="var(--mute)">${DOW[i]}</text>`; }).join('') + `<line x1="8" x2="342" y1="${130 - pv.plan / maxK * 110}" y2="${130 - pv.plan / maxK * 110}" stroke="var(--ink)" stroke-opacity=".6" stroke-dasharray="3 4"/>`;
   const wpts = E.dailyWeights(S, E.addDays(T, -27), T);
   let wsvg = '';
   if (wpts.length >= 2) { const ks = wpts.map(p => p.kg), lo = Math.min(...ks) - 0.3, hi = Math.max(...ks) + 0.3; const X = d => 14 + (E.diffDays(d, E.addDays(T, -27)) / 27) * 322, Y = k => 100 - (k - lo) / (hi - lo) * 84;
@@ -161,7 +174,7 @@ function vPreview(T) {
   const sl = pv.slopeWeek == null ? '—' : (pv.slopeWeek >= 0 ? '+' : '') + E.round(pv.slopeWeek, 2) + ' kg/sem';
   return `<div class="row sp"><h1>Semana en curso</h1>${isPrev ? '<span class="tag w">PREVIEW</span>' : ''}</div>
   <div class="sub">${dLabel(pv.weekStart)} → ${dLabel(E.addDays(pv.weekStart, 6))} · ${E.PHASE_LABEL[pv.phase]}${isPrev ? ' · datos parciales: se actualiza a medida que cargás. Los datos reales reemplazan esta vista después de la primera revisión.' : ''}</div>
-  <div class="card"><div class="row sp"><h3>Comido por día</h3><span class="sub">verde = cerrado · gris = meta</span></div><svg viewBox="0 0 350 156" width="100%" role="img" aria-label="Calorías comidas por día">${bars}</svg></div>
+  <div class="card"><div class="row sp"><h3>Comido por día</h3><span class="sub"><i class="dot" style="background:var(--p)"></i>P <i class="dot" style="background:var(--c)"></i>C <i class="dot" style="background:var(--f)"></i>G · · meta</span></div><svg viewBox="0 0 350 156" width="100%" role="img" aria-label="Calorías comidas por día">${bars}</svg></div>
   <div class="card"><div class="row sp"><h3>Peso · 28 días</h3><span class="sub cond" style="font-size:16px">${sl}</span></div>${wsvg || '<div class="sub">Faltan pesajes.</div>'}</div>
   <div class="card"><table>
    <tr><td>Días cerrados</td><td class="r num">${pv.closedDays}/7 ${pv.ready.days ? '✓' : `<small class="m">(mín. ${S.settings.params.daysClosedMin})</small>`}</td></tr>
@@ -260,6 +273,12 @@ function vAjustes(T) {
   <div class="it row sp" style="margin:6px 0"><span>Superávit volumen agresivo</span><input style="width:110px" type="number" data-dev="volumen_agresivo" value="${P.phaseDev.volumen_agresivo}"></div>
   <div class="it row sp" style="margin:6px 0"><span>Límite de salida (puntos grasa)</span><input style="width:110px" type="number" step="0.5" id="exitp" value="${S.settings.exitFatPoints}"></div>
   <button class="p s" style="margin-top:8px" data-a="savePar">Guardar</button></div>
+  <div class="card hi"><h3>+ Nuevo alimento</h3><div class="sub">Valores de la etiqueta. Elegí si son por 100 g o por porción.</div>
+    <label>Nombre</label><input id="nf-name" placeholder="Ej.: Crema de cacahuete en polvo">
+    <div class="row"><div class="grow"><label>Los valores son</label><select id="nf-base"><option value="100">por 100 g</option><option value="portion">por porción</option></select></div><div class="grow"><label>Porción (g)</label><input id="nf-pg" type="number" inputmode="decimal" placeholder="ej. 12"></div></div>
+    <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${{ kcal: 'kcal', p: 'Prot g', c: 'Carb g', f: 'Grasa g' }[k]}</label><input id="nf-${k}" type="number" inputmode="decimal" step="0.1"></div>`).join('')}</div>
+    <label>Nombre de la porción (opcional)</label><input id="nf-un" placeholder="cda, scoop, rebanada…">
+    <button class="p s" style="margin-top:10px" data-a="newFood">Guardar alimento</button></div>
   <div class="card"><h3>Alimentos</h3><div class="sub">Valores por 100 g. Editá con los de tus etiquetas.</div>${Object.entries(S.foods).map(([id, fd]) => `<details style="margin:8px 0"><summary>${esc(fd.name)} <small class="m">${fd.per100.kcal} kcal${fd.unitG ? ` · ${fd.unitName} = ${fd.unitG} g` : ''}</small></summary>
     <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${k.toUpperCase()}</label><input type="number" step="0.1" data-food="${id}" data-k="${k}" value="${fd.per100[k]}"></div>`).join('')}${fd.unitG ? `<div class="grow"><label>g/${esc(fd.unitName)}</label><input type="number" data-food="${id}" data-k="unitG" value="${fd.unitG}"></div>` : ''}</div>
     <button class="s" style="margin-top:6px" data-a="saveFood" data-food="${id}">Guardar</button></details>`).join('')}</div>
@@ -288,6 +307,10 @@ document.addEventListener('click', async e => {
       if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) await emit('MEAL_RESET', { date: d, mealId: m.id });
       else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'confirmed' });
       break; }
+    case 'addItem': { const mid = el.dataset.m; const fid = $('#addf-' + mid).value, q = parseFloat(($('#addq-' + mid).value || '').replace(',', '.'));
+      if (!(q > 0)) { toast('Indicá los gramos'); break; }
+      const m = dv().meals.find(x => x.id === mid); const items = m.actualItems.map(i => ({ ...i })).concat([{ foodId: fid, qty: q, unit: 'g', role: 'extra' }]);
+      await emit('MEAL_SET', { date: d, mealId: mid, status: 'edited', items }); UI.open[d + mid] = true; render(); toast('Añadido'); break; }
     case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(inp.value) || 0) + parseFloat(el.dataset.s), 2)); break; }
     case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
     case 'saveMeal': {
@@ -344,6 +367,14 @@ document.addEventListener('click', async e => {
       document.querySelectorAll('[data-par]').forEach(i => params[i.dataset.par] = parseFloat(i.value));
       document.querySelectorAll('[data-dev]').forEach(i => params.phaseDev[i.dataset.dev] = parseFloat(i.value));
       await emit('SETTINGS', { params, exitFatPoints: parseFloat($('#exitp').value) }); toast('Guardado'); break; }
+    case 'newFood': {
+      const name = $('#nf-name').value.trim(); const v = k => parseFloat(($('#nf-' + k).value || '').replace(',', '.'));
+      const pg = v('pg'), byPortion = $('#nf-base').value === 'portion';
+      if (!name || !(v('kcal') >= 0) || (byPortion && !(pg > 0))) { toast('Completá nombre, kcal y la porción'); break; }
+      const k = byPortion ? 100 / pg : 1; const per100 = { kcal: E.round(v('kcal') * k, 1), p: E.round((v('p') || 0) * k, 1), c: E.round((v('c') || 0) * k, 1), f: E.round((v('f') || 0) * k, 1) };
+      const id = 'u_' + name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').slice(0, 30) + '_' + Date.now().toString(36).slice(-4);
+      const food = { name, per100, src: 'usuario ' + T }; if (pg > 0) { food.unitG = pg; food.unitName = $('#nf-un').value.trim() || 'porción'; }
+      await emit('FOOD', { id, food }); toast('Alimento guardado'); break; }
     case 'saveFood': { const id = el.dataset.food; const fd = JSON.parse(JSON.stringify(S.foods[id]));
       document.querySelectorAll(`[data-food="${id}"][data-k]`).forEach(i => { const v = parseFloat(i.value); if (i.dataset.k === 'unitG') fd.unitG = v; else fd.per100[i.dataset.k] = v; });
       fd.src = 'editado ' + T; await emit('FOOD', { id, food: fd }); toast('Alimento actualizado'); break; }
