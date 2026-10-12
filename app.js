@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.4.2';
+export const APP_VERSION = '1.5.0';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -78,6 +78,59 @@ function render() {
   const f = { hoy: vHoy, semana: vSemana, plan: vPlan, datos: vDatos, ajustes: vAjustes }[UI.tab];
   const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
   $('#app').innerHTML = banner + f(T);
+  animate();
+}
+// ---------- animaciones ----------
+const PREV = {};
+function animate() {
+  const els = [...document.querySelectorAll('[data-k][data-to]')];
+  els.forEach(el => { const k = el.dataset.k; el.style[el.dataset.p] = PREV[k] ?? el.dataset.from; });
+  void document.body.offsetHeight;
+  requestAnimationFrame(() => els.forEach(el => { el.style[el.dataset.p] = el.dataset.to; PREV[el.dataset.k] = el.dataset.to; }));
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const k = 'n' + el.dataset.ck, to = +el.dataset.count, from = PREV[k] ?? 0; PREV[k] = to; if (from === to) return;
+    const t0 = performance.now(), dur = 700;
+    const step = t => { const x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3); el.textContent = r0(from + (to - from) * e); if (x < 1) requestAnimationFrame(step); };
+    el.textContent = r0(from); requestAnimationFrame(step);
+  });
+}
+function burst() {
+  const b = document.createElement('div'); b.className = 'burst';
+  const cols = ['var(--acc)', 'var(--p)', 'var(--c)', 'var(--f)'];
+  for (let i = 0; i < 28; i++) { const sp = document.createElement('i'); const ang = Math.random() * Math.PI * 2, dist = 90 + Math.random() * 140;
+    sp.style.cssText = `background:${cols[i % 4]};--x:${Math.cos(ang) * dist}px;--y:${Math.sin(ang) * dist}px;--r:${Math.random() * 720}deg;animation-delay:${Math.random() * 80}ms`; b.appendChild(sp); }
+  const msg = document.createElement('div'); msg.className = 'burstmsg'; msg.textContent = 'Día cerrado'; b.appendChild(msg);
+  document.body.appendChild(b); setTimeout(() => b.remove(), 1600);
+}
+const MEAL_TIME = { desayuno: '08:00', almuerzo: '13:30', merienda: '17:00', post: '19:30', cena: '21:30' };
+function countdown(time) {
+  if (!time) return '';
+  const [hh, mm] = time.split(':').map(Number); const now = new Date(); const diff = Math.round((hh * 60 + mm) - (now.getHours() * 60 + now.getMinutes()));
+  const fmtm = n => n >= 60 ? `${Math.floor(n / 60)} h${n % 60 ? ' ' + String(n % 60).padStart(2, '0') : ''}` : `${n} min`;
+  const txt = diff > 5 ? `en ${fmtm(diff)}` : diff >= -30 ? 'ahora' : `hace ${fmtm(-diff)}`;
+  const f = Math.max(0, Math.min(1, 1 - diff / 240)); const C = 2 * Math.PI * 6;
+  return `<span class="cd ${diff < -30 ? 'late' : diff <= 5 ? 'now' : ''}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="${C * f} ${C}" transform="rotate(-90 8 8)"/></svg>${time} · ${txt}</span>`;
+}
+function goalBanner(T, E_, TG) {
+  const st = S.settings, ph = st.phases, start = ph[0]?.from || st.startDate, end = st.endDate || E.addDays(ph.at(-1).from, 13);
+  const left = Math.max(0, E.diffDays(end, T)), total = Math.max(1, E.diffDays(end, start) + 1), done = Math.min(1, Math.max(0, (E.diffDays(T, start) + 1) / total));
+  const cols = { volumen: 'var(--acc)', volumen_agresivo: 'var(--p)', mantenimiento: 'var(--f)', deficit: 'var(--c)' };
+  const segs = ph.map((p, i) => { const to = i < ph.length - 1 ? ph[i + 1].from : E.addDays(end, 1); return `<i style="flex:${Math.max(1, E.diffDays(to, p.from))};background:${cols[p.phase] || 'var(--mute)'}"></i>`; }).join('');
+  // silueta que se llena con lo comido, por macro
+  const f = Math.min(1, E_.kcal / TG.kcal), kp = E_.p * 4, kc = E_.c * 4, kf = E_.f * 9, kt = Math.max(1, kp + kc + kf);
+  const o1 = f * kf / kt, o2 = f * (kf + kc) / kt;
+  const body = `<circle cx="50" cy="17" r="13"/><path d="M33 34h34c7 0 11 4 12 11l8 50c1 5-2 8-6 8s-6-3-7-7l-6-38v54l-3 80c0 5-3 8-8 8s-7-3-7-8l-1-60h-2l-1 60c0 5-2 8-7 8s-8-3-8-8l-3-80V58l-6 38c-1 4-3 7-7 7s-7-3-6-8l8-50c1-7 5-11 12-11z"/>`;
+  const sil = `<svg width="78" height="156" viewBox="0 0 100 200" role="img" aria-label="Silueta: ${Math.round(f * 100)} % del día comido">
+    <defs><clipPath id="silc">${body}</clipPath><linearGradient id="silg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--f)"/><stop offset="${o1}" stop-color="var(--f)"/><stop offset="${o1}" stop-color="var(--c)"/><stop offset="${o2}" stop-color="var(--c)"/><stop offset="${o2}" stop-color="var(--p)"/><stop offset="1" stop-color="var(--p)"/></linearGradient></defs>
+    <g fill="#ffffff" fill-opacity=".07">${body}</g>
+    <g clip-path="url(#silc)"><rect class="tr" x="0" y="0" width="100" height="200" fill="url(#silg)" data-k="sil" data-p="transform" data-from="translateY(200px)" data-to="translateY(${(200 * (1 - f)).toFixed(1)}px)"/></g>
+    <g fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1.5">${body}</g></svg>`;
+  return `<div class="card goal"><div class="row" style="gap:12px;align-items:center"><div class="grow">
+    <div class="eyebrow">Objetivo actual</div><div class="goalt">Verano en Paraguay</div>
+    <div class="row" style="gap:8px;align-items:baseline;margin-top:6px"><span class="big" data-count="${left}" data-ck="left">${left}</span><span class="sub">días · ${dLabel(end)}</span></div>
+    <div class="phbar">${segs}<b style="left:${(done * 100).toFixed(1)}%"></b></div>
+    <div class="sub" style="margin-top:6px">${E.PHASE_LABEL[E.phaseAt(st, T)]} · día ${Math.max(1, E.diffDays(T, start) + 1)} de ${total}</div>
+    </div><div style="text-align:center">${sil}<div class="cond" style="font-size:15px;font-weight:700"><span data-count="${Math.round(f * 100)}" data-ck="silp">${Math.round(f * 100)}</span> %</div></div></div></div>`;
 }
 
 // ---------- HOY ----------
@@ -96,15 +149,16 @@ function vHoy(T) {
     h += `<div class="card hi"><h3>¿${p === E.addDays(T, -1) ? 'Ayer' : dLabel(p)} comiste el plan?</h3><div class="sub">${pend.length > 1 ? `${pend.length} días sin cerrar. ` : ''}Solo los días cerrados cuentan para calibrar.</div>
     <div class="row wrap" style="margin-top:10px"><button class="p" data-a="close" data-d="${p}" data-v="all_plan">✓ Sí, todo</button><button data-a="gotoday" data-d="${p}">✎ Con cambios</button><button data-a="close" data-d="${p}" data-v="not_logged">✗ No registré</button></div></div>`;
   }
+  if (d === T) h += goalBanner(T, dv.eatenConfirmed, dv.target);
   // peso
   h += `<div class="card"><div class="row sp"><div><h3>Peso en ayunas</h3><div class="sub">${todayW.length ? todayW.map(w => `${w.kg} kg${w.fatPct != null ? ' · ' + w.fatPct + ' %' : ''}`).join(' · ') : 'Opcional a diario; también se carga el lunes.'}</div></div>
     <div class="row" style="width:150px"><input id="wkg" type="number" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
   // totales
   const off_ = st => !['confirmed', 'edited', 'replaced'].includes(st);
     const E_ = dv.eatenConfirmed, TG = dv.target;
-  const arc = (r, f, col) => { const C = 2 * Math.PI * r; return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-opacity=".18" stroke-width="9"/><circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * Math.min(1, f)} ${C}" transform="rotate(-90 70 70)"/>`; };
+  const arc = (r, f, col) => { const C = 2 * Math.PI * r; return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-opacity=".18" stroke-width="9"/><circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C} ${C}" class="tr" data-k="ring${r}" data-p="strokeDashoffset" data-from="${C}" data-to="${C * (1 - Math.min(1, f || 0))}" transform="rotate(-90 70 70)"/>`; };
   const ring = `<svg class="ring" width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Progreso de calorías y macros">${arc(62, E_.kcal / TG.kcal, 'var(--acc)')}${arc(50, E_.p / TG.p, 'var(--p)')}${arc(38, E_.c / TG.c, 'var(--c)')}${arc(26, E_.f / TG.f, 'var(--f)')}</svg>`;
-  const tile = (lab, a, b, col) => `<div><div class="sub" style="font-size:12px">${lab}</div><div class="cond" style="font-size:22px;font-weight:700;color:${col}">${r0(a)}<span class="sub" style="font-size:13px"> /${r0(b)}</span></div></div>`;
+  const tile = (lab, a, b, col) => `<div><div class="sub" style="font-size:12px">${lab}</div><div class="cond" style="font-size:22px;font-weight:700;color:${col}"><span data-count="${E.round(a)}" data-ck="${lab}">${r0(a)}</span><span class="sub" style="font-size:13px"> /${r0(b)}</span></div></div>`;
   h += `<div class="card"><div class="row" style="gap:14px;align-items:center">${ring}<div class="grow" style="display:grid;gap:6px">${tile('KCAL', E_.kcal, TG.kcal, 'var(--acc)')}${tile('PROT g', E_.p, TG.p, 'var(--p)')}${tile('CARB g', E_.c, TG.c, 'var(--c)')}${tile('GRASA g', E_.f, TG.f, 'var(--f)')}</div></div>
     <div class="sub" style="margin-top:8px">Proyectado si comés lo pendiente: ${r0(dv.actual.kcal)} kcal</div>`;
   // gráfico por comidas: barras apiladas por macro (kcal), pendientes atenuadas
@@ -131,9 +185,11 @@ function vHoy(T) {
     const off = !['confirmed', 'edited', 'replaced'].includes(m.status);
     const tag = { pending: '<span class="tag">por comer</span>', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
     const open = UI.open[d + m.id];
+    const mt = (E.versionAt(S, d).meals.find(x => x.id === m.id) || {}).time || MEAL_TIME[m.id];
+    const cdn = d === T && m.status === 'pending' ? countdown(mt) : '';
     h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
-      <div class="sub">${m.actualItems.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px">${tag || '<span></span>'}<button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
+      <div class="sub">${m.actualItems.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
       h += `<div class="items" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
@@ -254,9 +310,60 @@ function vDatos(T) {
   const ws = S.weights.slice(-40).reverse();
   return `<h1>Datos</h1>
   <div class="card hi"><h3>Exportar para IA</h3><div class="sub">Prompt + CSV de días, pesos y semanas, listo para pegar en Claude o ChatGPT.</div><div class="row" style="margin-top:8px"><button class="p s" data-a="ai">Compartir archivo</button><button class="s" data-a="aicopy">Copiar texto</button></div></div>
+  <div class="card hi"><h3>Importar plan nutricional</h3><div class="sub">1) Copiá el prompt y pegalo en ChatGPT junto con tu plan (PDF, foto o texto). 2) Pegá acá el JSON que te devuelva. 3) Revisá el antes/después y aplicalo como nueva versión del plan.</div>
+    <div class="row wrap" style="margin-top:8px"><button class="p s" data-a="planPrompt">Copiar prompt para ChatGPT</button></div>
+    <label>JSON de ChatGPT</label><textarea id="planjson" rows="5" placeholder='{"foods":[…],"meals":[…]}'>${esc(UI.planJson || '')}</textarea>
+    <button class="s" style="margin-top:8px" data-a="planPreview">Previsualizar</button>${UI.planImport ? planPreviewHtml(T) : ''}</div>
   <div class="card"><h3>Respaldo</h3><div class="sub">El respaldo es la copia completa de tus datos. Hacelo cada lunes (iCloud/Archivos).</div><div class="row wrap" style="margin-top:8px"><button class="s" data-a="backup">Exportar respaldo</button><label class="s" style="margin:0"><input id="imp" type="file" accept=".json,application/json" class="hidden"><span class="tag" style="padding:9px 12px;font-size:14px">Importar respaldo</span></label></div></div>
   <div class="card"><h3>Importar Withings</h3><div class="sub">Archivo <code>weight.csv</code> del export de Withings (Health Mate → Descargar mis datos). Ignora duplicados.</div><label style="margin-top:8px"><input id="wcsv" type="file" accept=".csv,text/csv" class="hidden"><span class="tag" style="padding:9px 12px;font-size:14px">Elegir weight.csv</span></label></div>
   <h2>Pesos (${S.weights.length})</h2><div class="card"><table><tr><th>Fecha</th><th class="r">kg</th><th class="r">% grasa</th><th></th></tr>${ws.map(w => `<tr><td>${dLabel(w.date)} <small class="m">${w.date.slice(0, 4)}</small></td><td class="r num">${w.kg}</td><td class="r num">${w.fatPct ?? ''}</td><td class="r"><button class="s del" data-a="delw" data-w="${w.id}">✕</button></td></tr>`).join('')}</table></div>`;
+}
+
+// ---------- importar plan ----------
+function planPrompt() {
+  const foods = Object.entries(S.foods).map(([id, f]) => `${id}: ${f.name} (${f.per100.kcal} kcal/100 g${f.unitG ? `, 1 ${f.unitName} = ${f.unitG} g` : ''})`).join('\n');
+  return `Sos un asistente que convierte planes nutricionales al formato de mi app NutriciOS.
+Te paso mi plan (adjunto o pegado abajo). Devolveme SOLO un bloque JSON válido, sin texto antes ni después, con este esquema:
+
+{
+  "foods": [ { "id": "snake_case_unico", "name": "Nombre", "per100": { "kcal": 0, "p": 0, "c": 0, "f": 0 }, "unitG": 50, "unitName": "u" } ],
+  "meals": [ { "name": "Desayuno", "time": "08:00", "items": [ { "food": "id", "qty": 2, "unit": "u", "role": "fixed" } ] } ]
+}
+
+Reglas:
+- Usá estos alimentos existentes por su id cuando coincidan:
+${foods}
+- Solo agregá a "foods" los alimentos que NO estén en esa lista. Valores por 100 g (crudo o cocido según cómo se pese en el plan; aclaralo en el nombre). "unitG"/"unitName" solo si se cuenta por unidades (huevo, rebanada, scoop).
+- "unit": "g" para gramos, "u" para unidades (requiere unitG en el alimento).
+- "role": "carb" para la fuente principal de carbohidratos ajustable de la comida (arroz, avena, pasta, papa), "nego" para huevos o whey, "fixed" para el resto (proteína animal siempre "fixed").
+- "time" en formato HH:MM, si el plan lo indica; si no, estimalo.
+- Respetá las cantidades del plan; si da rangos, usá el punto medio.
+- Al final del JSON no agregues comentarios.
+
+Mi plan:
+`;
+}
+function parsePlan(txt) {
+  const m = txt.match(/\{[\s\S]*\}/); if (!m) throw new Error('No encontré JSON');
+  const j = JSON.parse(m[0]); if (!Array.isArray(j.meals) || !j.meals.length) throw new Error('Falta "meals"');
+  const foods = { ...S.foods }, newFoods = [];
+  for (const f of j.foods || []) { if (!f.id || !f.per100 || foods[f.id]) continue; const food = { name: String(f.name || f.id), per100: { kcal: +f.per100.kcal || 0, p: +f.per100.p || 0, c: +f.per100.c || 0, f: +f.per100.f || 0 }, src: 'plan importado' }; if (f.unitG > 0) { food.unitG = +f.unitG; food.unitName = f.unitName || 'u'; } foods[f.id] = food; newFoods.push([f.id, food]); }
+  const used = {};
+  const meals = j.meals.map((m, i) => { let id = String(m.name || 'comida').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'comida' + i; if (/post/.test(id)) id = 'post'; while (used[id]) id += '_'; used[id] = 1;
+    const items = (m.items || []).map(it => { const fid = it.food || it.foodId; if (!foods[fid]) throw new Error(`Alimento desconocido: ${fid}`); const unit = it.unit === 'u' && foods[fid].unitG ? 'u' : 'g'; const qty = +it.qty || 0; const role = ['carb', 'nego'].includes(it.role) ? it.role : 'fixed';
+      const o = { foodId: fid, qty, unit, role }; if (role === 'carb') Object.assign(o, { min: E.round(qty * 0.5 / 5) * 5, max: E.round(qty * 2 / 5) * 5, step: 5 }); if (role === 'nego') Object.assign(o, unit === 'u' ? { min: Math.max(0, qty - 2), max: qty + 2, step: 1 } : { min: E.round(qty * 0.5), max: E.round(qty * 1.5), step: 5 }); return o; });
+    const out = { id, name: String(m.name || 'Comida ' + (i + 1)), items }; if (/^\d{1,2}:\d{2}$/.test(m.time || '')) out.time = m.time.padStart(5, '0'); return out; });
+  return { foods, newFoods, meals };
+}
+function planPreviewHtml(T) {
+  const P = UI.planImport, cur = E.versionAt(S, T).meals;
+  const a = E.mealsTotal(S.foods, cur), b = E.mealsTotal(P.foods, P.meals);
+  const line = (l, x, y) => `<tr><td>${l}</td><td class="r num">${r0(x)}</td><td class="r num">${r0(y)}</td><td class="r num" style="color:${y - x >= 0 ? 'var(--acc)' : 'var(--warn)'}">${y - x >= 0 ? '+' : ''}${r0(y - x)}</td></tr>`;
+  return `<h2>Antes → después</h2><table><tr><th></th><th class="r">Actual</th><th class="r">Importado</th><th class="r">Δ</th></tr>${line('kcal', a.kcal, b.kcal)}${line('Prot g', a.p, b.p)}${line('Carb g', a.c, b.c)}${line('Grasa g', a.f, b.f)}</table>
+    ${P.meals.map(m => `<div style="margin-top:8px"><b>${esc(m.name)}</b> <small class="m">${m.time || ''} · ${r0(E.sumItems(P.foods, m.items).kcal)} kcal</small><div class="sub">${m.items.map(it => `${qtyLabel(it)} ${esc(P.foods[it.foodId].name.split(',')[0].toLowerCase())}${it.role !== 'fixed' ? ` <small>(${it.role})</small>` : ''}`).join(' · ')}</div></div>`).join('')}
+    ${P.newFoods.length ? `<div class="sub" style="margin-top:8px">Alimentos nuevos: ${P.newFoods.map(([, f]) => esc(f.name)).join(', ')}</div>` : ''}
+    <div class="row" style="margin-top:10px"><button class="p s" data-a="planApply">Aplicar como nueva versión</button><button class="s" data-a="planCancel">Descartar</button></div>
+    <div class="sub" style="margin-top:6px">Empieza hoy si no marcaste nada; si no, mañana. Podés volver atrás desde Plan → versiones.</div>`;
 }
 
 // ---------- AJUSTES ----------
@@ -298,7 +405,7 @@ document.addEventListener('click', async e => {
       const cd = el.dataset.d, ans = el.dataset.v;
       if (el.dataset.manual) { const v = E.dayView(S, cd, T); const list = v.meals.filter(m => ['pending', 'assumed'].includes(m.status)).map(m => ['MEAL_SET', { date: cd, mealId: m.id, status: 'skipped' }]); list.push(['DAY_CLOSE', { date: cd, answer: 'with_changes' }]); await emitMany(list); }
       else await emit('DAY_CLOSE', { date: cd, answer: ans });
-      toast('Día cerrado'); break; }
+      burst(); break; }
     case 'reopen': await emit('DAY_CLOSE', { date: d, answer: null }); break;
     case 'addw': { const kg = parseFloat($('#wkg').value.replace(',', '.')); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast('Peso guardado'); } break; }
     case 'toggle': {
@@ -380,6 +487,12 @@ document.addEventListener('click', async e => {
     case 'delw': await emit('WEIGHT', { id: el.dataset.w, deleted: true }); break;
     case 'ai': { const x = E.exportForAI(S, T); download(`nutricios-ia-${T}.txt`, x.text); break; }
     case 'aicopy': { const x = E.exportForAI(S, T); try { await navigator.clipboard.writeText(x.text); toast('Copiado: pegalo en Claude'); } catch { download(`nutricios-ia-${T}.txt`, x.text); } break; }
+    case 'planPrompt': { const t = planPrompt(); try { await navigator.clipboard.writeText(t); toast('Prompt copiado: pegalo en ChatGPT'); } catch { download('nutricios-prompt-plan.txt', t); } break; }
+    case 'planPreview': { UI.planJson = $('#planjson').value; try { UI.planImport = parsePlan(UI.planJson); } catch (err) { UI.planImport = null; toast('JSON no válido: ' + err.message); } render(); break; }
+    case 'planCancel': UI.planImport = null; UI.planJson = ''; render(); break;
+    case 'planApply': { const P = UI.planImport; if (!P) break; const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
+      const list = P.newFoods.map(([id, food]) => ['FOOD', { id, food }]); list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: P.meals, reason: 'Plan importado' }]);
+      UI.planImport = null; UI.planJson = ''; await emitMany(list); toast('Plan importado · desde ' + dLabel(eff)); backup(); break; }
     case 'backup': backup(); break;
     case 'update': applyUpdate(); break;
     case 'checkupd': checkUpdate(true); break;
