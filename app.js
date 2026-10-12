@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -149,14 +149,37 @@ const mealName = id => (E.versionAt(S, UI.day).meals.find(m => m.id === id) || {
 function reviewWeek(T) { // semana a revisar: la última completa
   return E.addDays(E.weekStart(T), -7);
 }
+function vPreview(T) {
+  const pv = E.weekPreview(S, T); const isPrev = !Object.keys(S.reviews).length;
+  const maxK = Math.max(...pv.rows.map(r => Math.max(r.target, r.eaten || 0)));
+  const bars = pv.rows.map((r, i) => { const x = 14 + i * 46, H = 110; const ht = r.target / maxK * H, he = (r.eaten || 0) / maxK * H;
+    return `<rect x="${x}" y="${130 - ht}" width="30" height="${ht}" rx="6" fill="var(--line)"/>${r.eaten ? `<rect x="${x}" y="${130 - he}" width="30" height="${he}" rx="6" fill="${r.closed || r.date === T ? 'var(--acc)' : 'var(--mute)'}"/>` : ''}<text x="${x + 15}" y="148" text-anchor="middle" font-size="11" fill="var(--mute)">${DOW[i]}</text>`; }).join('');
+  const wpts = E.dailyWeights(S, E.addDays(T, -27), T);
+  let wsvg = '';
+  if (wpts.length >= 2) { const ks = wpts.map(p => p.kg), lo = Math.min(...ks) - 0.3, hi = Math.max(...ks) + 0.3; const X = d => 14 + (E.diffDays(d, E.addDays(T, -27)) / 27) * 322, Y = k => 100 - (k - lo) / (hi - lo) * 84;
+    wsvg = `<svg viewBox="0 0 350 120" width="100%" role="img" aria-label="Peso de los últimos 28 días"><polyline fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round" points="${wpts.map(p => X(p.date) + ',' + Y(p.kg)).join(' ')}"/>${wpts.map(p => `<circle cx="${X(p.date)}" cy="${Y(p.kg)}" r="3" fill="var(--acc)"/>`).join('')}<text x="14" y="116" font-size="11" fill="var(--mute)">${dLabel(E.addDays(T, -27))}</text><text x="336" y="116" text-anchor="end" font-size="11" fill="var(--mute)">hoy</text><text x="336" y="12" text-anchor="end" font-size="11" fill="var(--mute)">${E.round(hi - 0.3, 1)} kg</text></svg>`; }
+  const sl = pv.slopeWeek == null ? '—' : (pv.slopeWeek >= 0 ? '+' : '') + E.round(pv.slopeWeek, 2) + ' kg/sem';
+  return `<div class="row sp"><h1>Semana en curso</h1>${isPrev ? '<span class="tag w">PREVIEW</span>' : ''}</div>
+  <div class="sub">${dLabel(pv.weekStart)} → ${dLabel(E.addDays(pv.weekStart, 6))} · ${E.PHASE_LABEL[pv.phase]}${isPrev ? ' · datos parciales: se actualiza a medida que cargás. Los datos reales reemplazan esta vista después de la primera revisión.' : ''}</div>
+  <div class="card"><div class="row sp"><h3>Comido por día</h3><span class="sub">verde = cerrado · gris = meta</span></div><svg viewBox="0 0 350 156" width="100%" role="img" aria-label="Calorías comidas por día">${bars}</svg></div>
+  <div class="card"><div class="row sp"><h3>Peso · 28 días</h3><span class="sub cond" style="font-size:16px">${sl}</span></div>${wsvg || '<div class="sub">Faltan pesajes.</div>'}</div>
+  <div class="card"><table>
+   <tr><td>Días cerrados</td><td class="r num">${pv.closedDays}/7 ${pv.ready.days ? '✓' : `<small class="m">(mín. ${S.settings.params.daysClosedMin})</small>`}</td></tr>
+   <tr><td>Pesajes esta semana</td><td class="r num">${pv.weighins}/7 ${pv.ready.weighins ? '✓' : `<small class="m">(mín. ${S.settings.params.weighinsMin})</small>`}</td></tr>
+   <tr><td>Ingesta media (días cerrados)</td><td class="r num">${pv.intake == null ? '—' : r0(pv.intake) + ' kcal'}</td></tr>
+   <tr><td>Gasto estimado actual</td><td class="r num">${r0(pv.tdeeNow)} kcal</td></tr>
+   <tr><td>Gasto implícito con estos datos</td><td class="r num">${pv.implied == null ? '—' : r0(pv.implied) + ' kcal'}</td></tr>
+   <tr><td>Meta de fase próxima semana</td><td class="r num">${r0(pv.goalNext)} kcal <small class="m">(plan hoy ${r0(pv.plan)})</small></td></tr></table>
+   <div class="sub" style="margin-top:8px">Provisional: la propuesta real se calcula en la revisión del lunes, con la semana completa.</div></div>`;
+}
 function vSemana(T) {
   const ws = UI.review || reviewWeek(T); const we = E.addDays(ws, 6);
-  if (ws < S.settings.startDate) return `<h1>Semana</h1><div class="card">La primera revisión es el lunes ${dLabel(E.addDays(E.weekStart(S.settings.startDate), 7))}. Mientras tanto: pesate cada mañana y cerrá cada día.</div>${vHistory(T)}`;
+  if (ws < S.settings.startDate) return vPreview(T) + `<div class="card">La primera revisión: ${dLabel(E.addDays(E.weekStart(S.settings.startDate), 7))}.</div>${vHistory(T)}`;
   const rv = S.reviews[ws] || {};
   const days = E.range(ws, 7).map(d => E.dayView(S, d, T));
   const closed = days.filter(d => d.hasData).length;
   const wts = E.range(ws, 7).map(d => ({ d, w: S.weights.filter(x => x.date === d) }));
-  let h = `<h1>Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
+  let h = vPreview(T) + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
   h += `<div class="card"><h3>1. Pesajes en ayunas</h3>`;
   for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="number" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
   h += `</div><div class="card"><h3>2. WHOOP Calories</h3><div class="row"><div class="grow"><label>Media 30 días (vista M)</label><input id="w30" type="number" value="${rv.whoop30 ?? ''}"></div><div class="grow"><label>Media 7 días (opcional)</label><input id="w7" type="number" value="${rv.whoop7 ?? ''}"></div></div></div>
@@ -204,10 +227,12 @@ function vPlan(T) {
   }
   h += ed ? `<div class="row"><button class="p" data-a="savePlan">Guardar nueva versión</button><button data-a="cancelPlan">Cancelar</button></div>` : `<div class="sub">* palanca de ajuste (carbohidratos).</div><button style="margin-top:8px" data-a="editPlan">Editar plan</button>`;
   // fases
-  h += `<h2>Fases</h2><div class="card">${S.settings.phases.map(p => `<div class="row sp"><span>${dLabel(p.from)}</span><b>${E.PHASE_LABEL[p.phase]}</b></div>`).join('')}
-    <label>Cambiar fase desde</label><div class="row"><input id="phd" type="date" value="${E.addDays(T, 1)}"><select id="php">${Object.entries(E.PHASE_LABEL).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
-    <button class="s" style="margin-top:8px" data-a="setPhase">Aplicar</button></div>`;
-  h += `<h2>Límite de salida</h2><div class="card"><div class="sub">Grasa Withings base ${fat.baseline == null ? '—' : E.round(fat.baseline, 1) + ' %'} · actual ${fat.current == null ? `— (faltan ${8 - fat.n} lecturas)` : E.round(fat.current, 1) + ' %'} · límite +${S.settings.exitFatPoints} puntos ${fat.exitTriggered ? '<b style="color:var(--warn)">ALCANZADO</b>' : ''}</div></div>`;
+  const ph = S.settings.phases, endD = S.settings.endDate || '2026-12-20', curPh = E.phaseAt(S.settings, T);
+  h += `<h2>Fases</h2><div class="card">` + ph.map((p, i) => { const to = i < ph.length - 1 ? E.addDays(ph[i + 1].from, -1) : endD; const now = p.from <= T && T <= to; const wk = Math.max(1, Math.round((E.diffDays(to, p.from) + 1) / 7));
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="row sp"><select data-phk="${i}" style="width:auto">${Object.entries(E.PHASE_LABEL).map(([k, l]) => `<option value="${k}" ${k === p.phase ? 'selected' : ''}>${l}</option>`).join('')}</select>${now ? '<span class="tag ok">actual</span>' : ''}${ph.length > 1 && i > 0 ? `<button class="s del" data-a="delPhase" data-i="${i}" aria-label="Quitar fase">✕</button>` : ''}</div>
+      <div class="row" style="margin-top:6px"><div class="grow"><label>Desde</label><input type="date" data-phf="${i}" value="${p.from}" ${i === 0 ? 'disabled' : ''}></div><div class="grow"><label>Hasta</label><input type="date" data-pht="${i}" value="${to}"></div></div><div class="sub" style="margin-top:4px">≈ ${wk} semanas</div></div>`; }).join('') +
+  `<div class="row wrap" style="margin-top:10px"><button class="p s" data-a="savePhases">Guardar fases</button><button class="s" data-a="addPhase">+ Añadir fase</button></div><div class="sub" style="margin-top:6px">El "hasta" de una fase mueve el "desde" de la siguiente. El último "hasta" es el fin del plan (viaje).</div></div>`;
+  h += `<h2>Límite de salida</h2><div class="card"><div class="sub" style="margin-bottom:6px">Si durante el volumen tu % de grasa Withings sube ${S.settings.exitFatPoints} puntos sobre tu punto de partida, la app te propone pasar a mantenimiento (vos aprobás). Usa la mediana de las últimas 8 mediciones para no reaccionar a un día suelto.</div><div class="sub">Grasa Withings base ${fat.baseline == null ? '—' : E.round(fat.baseline, 1) + ' %'} · actual ${fat.current == null ? `— (faltan ${8 - fat.n} lecturas)` : E.round(fat.current, 1) + ' %'} · límite +${S.settings.exitFatPoints} puntos ${fat.exitTriggered ? '<b style="color:var(--warn)">ALCANZADO</b>' : ''}</div></div>`;
   h += `<h2>Versiones</h2><div class="card">${S.versions.slice().reverse().map(x => `<div class="row sp" style="margin:6px 0"><div><b>${esc(x.id)}</b> <small class="m">${dLabel(x.effectiveFrom)} · ${r0(E.mealsTotal(S.foods, x.meals).kcal)} kcal</small><div class="sub">${esc(x.reason || '')}</div></div>${x.id !== v.id ? `<button class="s" data-a="rollback" data-v="${x.id}">Volver</button>` : '<span class="tag ok">vigente</span>'}</div>`).join('')}</div>`;
   return h;
 }
@@ -305,6 +330,15 @@ document.addEventListener('click', async e => {
       await emit('VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals, reason: 'Edición manual' }); toast('Nueva versión desde ' + dLabel(eff)); break; }
     case 'rollback': { const old = S.versions.find(x => x.id === el.dataset.v); const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       await emit('VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: old.meals, reason: `Vuelta a ${old.id}`, restores: old.id }); break; }
+    case 'savePhases': case 'addPhase': {
+      const n = S.settings.phases.length; const rows = [];
+      for (let i = 0; i < n; i++) rows.push({ phase: document.querySelector(`[data-phk="${i}"]`).value, from: document.querySelector(`[data-phf="${i}"]`).value, to: document.querySelector(`[data-pht="${i}"]`).value });
+      for (let i = 1; i < n; i++) if (rows[i - 1].to) rows[i].from = E.addDays(rows[i - 1].to, 1);
+      let endDate = rows[n - 1].to;
+      if (a === 'addPhase') { const from = E.addDays(endDate, 1); rows.push({ phase: 'mantenimiento', from }); endDate = E.addDays(from, 13); }
+      const phases = rows.map(r => ({ from: r.from, phase: r.phase })).filter((r, i, arr) => i === 0 || r.from > arr[i - 1].from);
+      await emit('SETTINGS', { phases, endDate }); toast('Fases guardadas'); break; }
+    case 'delPhase': { const i = +el.dataset.i; const phases = S.settings.phases.filter((_, j) => j !== i); await emit('SETTINGS', { phases }); break; }
     case 'setPhase': { const from = $('#phd').value, ph = $('#php').value; if (from) { const phases = S.settings.phases.filter(p => p.from < from).concat([{ from, phase: ph }]); await emit('SETTINGS', { phases }); } break; }
     case 'savePar': { const params = JSON.parse(JSON.stringify(S.settings.params));
       document.querySelectorAll('[data-par]').forEach(i => params[i.dataset.par] = parseFloat(i.value));

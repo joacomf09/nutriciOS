@@ -403,3 +403,25 @@ Decime, con números: (1) si mi tendencia de peso es coherente con la fase; (2) 
   return { prompt, csvDays: csvDays.join('\n'), csvWeights: csvW.join('\n'), csvWeeks: csvH.join('\n'),
     text: `${prompt}\n\n### Días\n${csvDays.join('\n')}\n\n### Pesos\n${csvW.join('\n')}\n\n### Semanas\n${csvH.join('\n')}\n` };
 }
+
+// ---------- preview de la semana en curso (datos parciales, no calibra) ----------
+export function weekPreview(state, today) {
+  const S = state.settings, P = S.params;
+  const ws = weekStart(today); const days = range(ws, 7);
+  const rows = days.map(d => {
+    const dv = dayView(state, d, today); const w = dailyWeights(state, d, d)[0];
+    return { date: d, future: d > today, closed: dv.hasData, unknown: dv.unknown, eaten: d === today ? dv.eatenConfirmed.kcal : (dv.hasData ? dv.actual.kcal : null), target: dv.target.kcal, kg: w ? w.kg : null };
+  });
+  const closed = rows.filter(r => r.closed);
+  const intake = closed.length ? closed.reduce((a, r) => a + r.eaten, 0) / closed.length : null;
+  const tr = weightTrend(state, today);
+  const hist = calibrationHistory(state, today);
+  const tdeeNow = hist.length ? hist.at(-1).tdee : S.tdee0;
+  const phase = phaseAt(S, today);
+  const kpk = P.kcalPerKg[phase] || 7000;
+  const implied = intake != null && tr.slopeWeek != null ? intake - tr.slopeWeek * kpk / 7 : null;
+  const plan = mealsTotal(state.foods, versionAt(state, today).meals).kcal;
+  const goalNext = tdeeNow + (P.phaseDev[phaseAt(S, addDays(ws, 7))] ?? 0);
+  return { weekStart: ws, rows, closedDays: closed.length, weighins: rows.filter(r => r.kg != null).length, intake, slopeWeek: tr.slopeWeek, trendKg: tr.trendKg, tdeeNow, implied, plan, goalNext, phase,
+    ready: { days: closed.length >= P.daysClosedMin, weighins: rows.filter(r => r.kg != null).length >= P.weighinsMin } };
+}
