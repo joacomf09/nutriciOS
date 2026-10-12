@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.4.2';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -195,9 +195,8 @@ function vSemana(T) {
   let h = vPreview(T) + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
   h += `<div class="card"><h3>1. Pesajes en ayunas</h3>`;
   for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="number" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
-  h += `</div><div class="card"><h3>2. WHOOP Calories</h3><div class="row"><div class="grow"><label>Media 30 días (vista M)</label><input id="w30" type="number" value="${rv.whoop30 ?? ''}"></div><div class="grow"><label>Media 7 días (opcional)</label><input id="w7" type="number" value="${rv.whoop7 ?? ''}"></div></div></div>
-  <div class="card"><h3>3. Sesiones realizadas</h3><div class="row"><div class="grow"><label>Fuerza</label><input id="sf" type="number" value="${rv.strength ?? ''}"></div><div class="grow"><label>Natación</label><input id="sn" type="number" value="${rv.swim ?? ''}"></div></div></div>
-  <div class="card"><h3>4. Contexto</h3><div class="chips" id="ctx">${['semana normal', 'viaje', 'enfermedad', 'alcohol', 'sueño malo', 'estrés'].map(c => `<button data-a="ctx" data-c="${c}" class="${(rv.context || ['semana normal']).includes(c) ? 'on' : ''}">${c}</button>`).join('')}</div><label>Nota</label><input id="note" value="${esc(rv.note || '')}">
+  h += `</div><div class="card"><h3>2. Sesiones realizadas</h3><div class="row"><div class="grow"><label>Fuerza</label><input id="sf" type="number" value="${rv.strength ?? ''}"></div><div class="grow"><label>Natación</label><input id="sn" type="number" value="${rv.swim ?? ''}"></div></div></div>
+  <div class="card"><h3>3. Contexto</h3><div class="chips" id="ctx">${['semana normal', 'viaje', 'enfermedad', 'alcohol', 'sueño malo', 'estrés'].map(c => `<button data-a="ctx" data-c="${c}" class="${(rv.context || ['semana normal']).includes(c) ? 'on' : ''}">${c}</button>`).join('')}</div><label>Nota</label><input id="note" value="${esc(rv.note || '')}">
   <label>% grasa Withings (opcional)</label><input id="fatp" type="number" step="0.1" value="${rv.fatPct ?? ''}"></div>
   <button class="p" style="width:100%" data-a="calc" data-w="${ws}">Calcular propuesta</button>`;
   const p = UI.proposal && UI.proposal.weekStart === ws ? UI.proposal : (S.reviews[ws] ? E.weeklyProposal(S, ws, T) : null);
@@ -335,7 +334,7 @@ document.addEventListener('click', async e => {
       document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseFloat(inp.value.replace(',', '.')); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
         if (kg > 30 && kg < 250 && (!ex || ex.kg !== kg)) list.push(['WEIGHT', { id: ex ? ex.id : uid(), date: day, kg, fatPct: ex?.fatPct ?? null }]); });
       const fatp = parseFloat($('#fatp').value); if (fatp > 3 && fatp < 60) { const last = E.addDays(ws, 6); const ex = S.weights.filter(w => w.date <= last).at(-1); if (ex) list.push(['WEIGHT', { ...ex, fatPct: fatp }]); }
-      list.push(['REVIEW', { weekStart: ws, whoop30: +$('#w30').value || null, whoop7: +$('#w7').value || null, strength: +$('#sf').value || 0, swim: +$('#sn').value || 0, context: [...document.querySelectorAll('#ctx .on')].map(b => b.dataset.c), note: $('#note').value, fatPct: fatp || null }]);
+      list.push(['REVIEW', { weekStart: ws, strength: +$('#sf').value || 0, swim: +$('#sn').value || 0, context: [...document.querySelectorAll('#ctx .on')].map(b => b.dataset.c), note: $('#note').value, fatPct: fatp || null }]);
       await emitMany(list); UI.proposal = E.weeklyProposal(S, ws, T); render(); break; }
     case 'approve': {
       const p = UI.proposal || E.weeklyProposal(S, UI.review || reviewWeek(T), T);
