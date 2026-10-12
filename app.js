@@ -1,4 +1,20 @@
 import * as E from './engine.js';
+export const APP_VERSION = '1.1.0';
+// ---------- actualización: compara con version.json publicado ----------
+const UPD = { latest: null, checking: false };
+async function checkUpdate(manual = false) {
+  UPD.checking = true; if (manual) render();
+  try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const j = await r.json(); UPD.latest = j.version; }
+  catch { if (manual) toast('Sin conexión: no se pudo comprobar'); }
+  UPD.checking = false; render();
+  if (manual && UPD.latest === APP_VERSION) toast('Ya tenés la última versión');
+}
+async function applyUpdate() {
+  toast('Actualizando…');
+  try { const regs = await navigator.serviceWorker?.getRegistrations?.() || []; for (const r of regs) await r.unregister(); } catch {}
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch {}
+  location.replace(location.pathname + '?v=' + Date.now());
+}
 
 // ---------- persistencia: log de eventos en IndexedDB (fallback localStorage) ----------
 const DB = 'nutricios', STORE = 'events';
@@ -60,7 +76,8 @@ function render() {
   const T = todayStr(); if (!UI.day) UI.day = T;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
   const f = { hoy: vHoy, semana: vSemana, plan: vPlan, datos: vDatos, ajustes: vAjustes }[UI.tab];
-  $('#app').innerHTML = f(T);
+  const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
+  $('#app').innerHTML = banner + f(T);
 }
 
 // ---------- HOY ----------
@@ -208,6 +225,7 @@ function vAjustes(T) {
   const P = S.settings.params;
   const f = (k, l, step = 1) => `<div class="it row sp" style="margin:6px 0"><span>${l}</span><input style="width:110px" type="number" step="${step}" data-par="${k}" value="${P[k]}"></div>`;
   return `<h1>Ajustes</h1>
+  <div class="card"><div class="row sp"><div><h3>Versión ${APP_VERSION}</h3><div class="sub">${UPD.latest ? (UPD.latest === APP_VERSION ? 'Al día' : 'Disponible: ' + esc(UPD.latest)) : 'Sin comprobar'}</div></div><div class="row"><button class="s" data-a="checkupd">${UPD.checking ? 'Comprobando…' : 'Buscar'}</button><button class="p s" data-a="update">Actualizar</button></div></div><div class="sub" style="margin-top:6px">Actualizar recarga la app desde GitHub. Tus datos no se tocan.</div></div>
   <div class="card"><h3>Recordatorio diario (Atajos de iOS)</h3><div class="sub">Atajos → Automatización → Nueva → Hora del día: 22:00, diariamente, ejecutar inmediatamente → Acción "Abrir URL" → <code>${esc(location.href.split('#')[0])}</code>. Al abrir, la app te pregunta por el día.</div></div>
   <div class="card"><h3>Parámetros del motor</h3>
   ${f('stepCap', 'Paso semanal máx. (kcal)')}${f('stepCapHyst', 'Paso con histéresis (kcal)')}${f('deadband', 'Banda muerta (kcal)')}${f('carryCap', 'Tope arrastre/día (kcal)')}${f('kcalFloor', 'Piso calórico (kcal)')}${f('calibrationWeeksMin', 'Semanas de calibración')}${f('gBase', 'Velocidad de aprendizaje', 0.05)}
@@ -219,7 +237,7 @@ function vAjustes(T) {
     <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${k.toUpperCase()}</label><input type="number" step="0.1" data-food="${id}" data-k="${k}" value="${fd.per100[k]}"></div>`).join('')}${fd.unitG ? `<div class="grow"><label>g/${esc(fd.unitName)}</label><input type="number" data-food="${id}" data-k="unitG" value="${fd.unitG}"></div>` : ''}</div>
     <button class="s" style="margin-top:6px" data-a="saveFood" data-food="${id}">Guardar</button></details>`).join('')}</div>
   <div class="card"><h3>Peligro</h3><button class="s del" data-a="wipe">Borrar todos los datos</button></div>
-  <div class="sub" style="text-align:center;margin:16px 0">NutriciOS · motor ${E.CALC_VERSION} · ${EVENTS.length} eventos</div>`;
+  <div class="sub" style="text-align:center;margin:16px 0">NutriciOS ${APP_VERSION} · motor ${E.CALC_VERSION} · ${EVENTS.length} eventos</div>`;
 }
 
 // ---------- acciones ----------
@@ -296,6 +314,8 @@ document.addEventListener('click', async e => {
     case 'ai': { const x = E.exportForAI(S, T); download(`nutricios-ia-${T}.txt`, x.text); break; }
     case 'aicopy': { const x = E.exportForAI(S, T); try { await navigator.clipboard.writeText(x.text); toast('Copiado: pegalo en Claude'); } catch { download(`nutricios-ia-${T}.txt`, x.text); } break; }
     case 'backup': backup(); break;
+    case 'update': applyUpdate(); break;
+    case 'checkupd': checkUpdate(true); break;
     case 'wipe': if (confirmWipe()) { await clearAll(); EVENTS = []; S = E.emptyState(); await boot(); } break;
   }
 });
@@ -333,7 +353,8 @@ async function boot() {
   if (!S.settings) await emit('INIT', { settings: E.DEFAULT_SETTINGS, foods: E.DEFAULT_FOODS, meals: E.DEFAULT_MEALS });
   try { if (navigator.storage?.persist) await navigator.storage.persist(); } catch {}
   render();
+  checkUpdate();
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S) { if (UI.day > todayStr()) UI.day = todayStr(); render(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S) { checkUpdate(); if (UI.day > todayStr()) UI.day = todayStr(); render(); } });
 boot();
