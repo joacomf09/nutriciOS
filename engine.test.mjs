@@ -28,7 +28,7 @@ t('omitir merienda hoy propone +carbohidratos en comidas futuras', () => {
   const s = E.replay([init(), { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'merienda', status: 'skipped' } }]);
   const r = E.redistributionSuggestion(s, '2026-10-15', '2026-10-15');
   assert.ok(r.delta > 600); assert.ok(r.sameDay.length > 0);
-  assert.ok(r.sameDay.every(c => ['arroz', 'pasta'].includes(c.foodId)));
+  assert.ok(r.sameDay.every(c => ['arroz', 'pasta', 'pb2'].includes(c.foodId)));
   for (const c of r.sameDay) assert.ok(c.qty <= 160);
 });
 
@@ -110,5 +110,10 @@ t('hoy: comidas pendientes (desmarcadas) cuentan en proyección, no como comidas
   const dv = E.dayView(s, '2026-10-15', '2026-10-15');
   assert.equal(dv.meals.filter(m => m.status === 'pending').length, 4);
   assert.ok(dv.eatenConfirmed.kcal > 500 && dv.eatenConfirmed.kcal < 650);
+});
+t('omitir post-gym con carbos al tope usa maní en polvo antes del saldo', () => {
+  const ev = [init(), { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'desayuno', status: 'skipped' } }, { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'merienda', status: 'skipped' } }];
+  const r = E.redistributionSuggestion(E.replay(ev), '2026-10-15', '2026-10-15');
+  assert.ok(r.sameDay.some(c => c.foodId === 'pb2')); assert.ok(r.unplaced > 0);
 });
 console.log(`\n${n} pruebas OK`);

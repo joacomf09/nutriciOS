@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -101,8 +101,9 @@ function vHoy(T) {
     <div class="row" style="width:150px"><input id="wkg" type="number" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
   // totales
   const pct = Math.min(100, dv.eatenConfirmed.kcal / dv.target.kcal * 100);
-  h += `<div class="card"><div class="row sp"><div><div class="sub">Comido</div><div class="big">${r0(dv.eatenConfirmed.kcal)} <small class="m">/ ${r0(dv.target.kcal)} kcal</small></div><div class="sub">Proyectado si comés lo pendiente: ${r0(dv.actual.kcal)}</div></div>
-    <div class="sub num" style="text-align:right">P ${r0(dv.eatenConfirmed.p)} g<br>C ${r0(dv.eatenConfirmed.c)} g<br>G ${r0(dv.eatenConfirmed.f)} g</div></div><div class="bar"><i style="width:${pct}%"></i></div>
+  const ring = (() => { const C = 2 * Math.PI * 44, f = Math.min(1, pct / 100); return `<svg class="ring" width="104" height="104" viewBox="0 0 104 104" aria-hidden="true"><circle cx="52" cy="52" r="44" fill="none" stroke="var(--line)" stroke-width="10"/><circle cx="52" cy="52" r="44" fill="none" stroke="var(--acc)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C * f} ${C}" transform="rotate(-90 52 52)"/></svg>`; })();
+  h += `<div class="card"><div class="row" style="gap:16px">${ring}<div class="grow"><div class="sub">Comido</div><div class="big">${r0(dv.eatenConfirmed.kcal)} <small class="m">/ ${r0(dv.target.kcal)} kcal</small></div><div class="sub">Proyectado: ${r0(dv.actual.kcal)}</div></div>
+    <div class="sub num cond" style="text-align:right;font-size:15px">P ${r0(dv.eatenConfirmed.p)} g<br>C ${r0(dv.eatenConfirmed.c)} g<br>G ${r0(dv.eatenConfirmed.f)} g</div></div>
     ${dv.close ? `<div class="sub" style="margin-top:6px">Día cerrado: ${{ all_plan: 'todo según plan', with_changes: 'con cambios', not_logged: 'no registrado' }[dv.close.answer]} <button class="s" data-a="reopen" data-d="${d}">reabrir</button></div>` : ''}</div>`;
   // sugerencias
   const sug = E.redistributionSuggestion(S, d, T);
@@ -120,17 +121,18 @@ function vHoy(T) {
     const tag = { pending: '<span class="tag">por comer</span>', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
     const open = UI.open[d + m.id];
     h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
-      <div class="grow" data-a="openm" data-m="${m.id}"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
-      <div class="sub">${m.actualItems.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div style="margin-top:4px">${tag}</div></div></div>`;
+      <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
+      <div class="sub">${m.actualItems.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px">${tag || '<span></span>'}<button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
       h += `<div class="items" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
         const pl = m.planned[i];
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
-        h += `<div class="it">${sel}<input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${it.unit === 'u' ? 0.5 : 5}"></div>`;
+        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 12 : 5);
+        h += `<div class="it" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
-      h += `<div class="sub">${m.actualItems.map(it => it.unit === 'u' ? (S.foods[it.foodId].unitName || 'u') : 'g').join(' · ')} — valores reales; el plan original se conserva.</div>
-        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar real</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
+      h += `<div class="sub">Cantidades reales (unidades o gramos). Guardar la marca como comida; el plan original se conserva.</div>
+        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
   }
@@ -261,6 +263,7 @@ document.addEventListener('click', async e => {
       if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) await emit('MEAL_RESET', { date: d, mealId: m.id });
       else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'confirmed' });
       break; }
+    case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(inp.value) || 0) + parseFloat(el.dataset.s), 2)); break; }
     case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
     case 'saveMeal': {
       const m = dv().meals.find(x => x.id === el.dataset.m); const card = el.closest('.card');

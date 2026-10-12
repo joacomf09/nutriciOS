@@ -26,6 +26,7 @@ export const DEFAULT_FOODS = {
   carne:    { name: 'Carne vacuna magra, cruda', per100: { kcal: 170, p: 20, c: 0, f: 10 }, src: 'USDA' },
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
+  pb2:      { name: 'Mantequilla de maní en polvo', per100: { kcal: 450, p: 45, c: 30, f: 13 }, unitG: 12, unitName: 'cda', src: 'genérico — cargar etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
@@ -83,7 +84,7 @@ export function reduce(state, ev) {
   const p = ev.payload || {};
   switch (ev.type) {
     case 'INIT':
-      s.settings = clone(p.settings); s.foods = clone(p.foods);
+      s.settings = clone(p.settings); s.foods = { ...clone(DEFAULT_FOODS), ...clone(p.foods) };
       s.versions = [{ id: 'v1', effectiveFrom: p.settings.startDate, meals: clone(p.meals), reason: 'Plan inicial', ts: ev.ts }];
       break;
     case 'SETTINGS': s.settings = { ...s.settings, ...clone(p) }; break;
@@ -140,7 +141,7 @@ export function dayView(state, date, today) {
   const close = state.closes[date] || null;
   const meals = v.meals.map(m => {
     const planned = m.items.map(it => ({ ...it }));
-    for (const o of ovs) if (o.mealId === m.id) { const it = planned.find(x => x.foodId === o.foodId); if (it) it.qty = o.qty; }
+    for (const o of ovs) if (o.mealId === m.id) { const it = planned.find(x => x.foodId === o.foodId); if (it) it.qty = o.qty; else if (o.qty > 0) planned.push({ foodId: o.foodId, qty: o.qty, unit: 'g', role: 'boost' }); }
     const set = sets[m.id];
     let status;
     if (set) status = set.status;
@@ -195,6 +196,13 @@ function distribute(foods, meals, deltaKcal, roles, mealFilter = () => true) {
   return { changes: [...changes].map(([s, qty]) => ({ mealId: s.m.id, foodId: s.it.foodId, from: s.it.qty, qty })), remaining };
 }
 
+// Palanca extra (calorías fáciles): mantequilla de maní en polvo, en pasos de 12 g, hasta 36 g por comida.
+function boost(foods, meals, kcal) {
+  const per = itemMacros(foods, { foodId: 'pb2', qty: 12, unit: 'g' }).kcal; if (!per || kcal < per / 2 || !meals.length) return { changes: [], remaining: kcal };
+  const m = meals[meals.length - 1]; const cur = (m.items.find(i => i.foodId === 'pb2') || { qty: 0 }).qty;
+  const n = Math.min(Math.round(kcal / per), Math.floor((36 - cur) / 12)); if (n <= 0) return { changes: [], remaining: kcal };
+  return { changes: [{ mealId: m.id, foodId: 'pb2', from: cur, qty: cur + 12 * n, add: true }], remaining: kcal - n * per };
+}
 export function redistributionSuggestion(state, date, today) {
   const P = state.settings.params; const dv = dayView(state, date, today);
   const delta = dv.target.kcal - dv.actual.kcal; // >0: falta energía
@@ -203,8 +211,9 @@ export function redistributionSuggestion(state, date, today) {
   if (delta > P.redistTol) {
     const future = dv.meals.filter(m => m.status === 'pending' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
     const r = distribute(state.foods, future, delta, ['carb']);
-    out.sameDay = r.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
-    out.unplaced = round(Math.max(0, r.remaining));
+    const b = r.remaining > 60 ? boost(state.foods, future, r.remaining) : { changes: [], remaining: r.remaining };
+    out.sameDay = [...r.changes, ...b.changes].map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
+    out.unplaced = round(Math.max(0, b.remaining));
   }
   const bank = weekBank(state, date, today);
   if (bank > P.redistTol && date === today) {
@@ -306,10 +315,15 @@ export function calibrationHistory(state, today) {
 
 export function adjustMeals(foods, meals, deltaKcal) {
   const m2 = clone(meals);
-  let r = distribute(foods, m2, deltaKcal, ['carb']);
+  let r = distribute(foods, m2, deltaKcal, ['carb', 'boost']);
   const all = [...r.changes]; let remaining = r.remaining; let usedNego = false;
   const apply = chs => { for (const c of chs) { const it = m2.find(m => m.id === c.mealId).items.find(i => i.foodId === c.foodId && i.qty === c.from); if (it) it.qty = c.qty; } };
   apply(r.changes);
+  if (remaining > 60) {
+    const b = boost(foods, m2.filter(m => m.id === 'post' || m.id === 'merienda'), remaining);
+    for (const c of b.changes) { const mm = m2.find(m => m.id === c.mealId); const it = mm.items.find(i => i.foodId === 'pb2'); if (it) it.qty = c.qty; else mm.items.push({ foodId: 'pb2', qty: c.qty, unit: 'g', role: 'boost', min: 0, max: 36, step: 12 }); }
+    all.push(...b.changes); remaining = b.remaining;
+  }
   if (Math.abs(remaining) > 60) {
     const r2 = distribute(foods, m2, remaining, ['nego']);
     apply(r2.changes); all.push(...r2.changes); remaining = r2.remaining; usedNego = r2.changes.length > 0;
