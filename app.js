@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
