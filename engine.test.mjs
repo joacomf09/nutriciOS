@@ -105,4 +105,10 @@ t('export para IA incluye prompt y CSV', () => {
   const x = E.exportForAI(s, '2026-10-26');
   assert.ok(x.text.includes('fecha,estado_dia') && x.prompt.includes('Plan vigente'));
 });
+t('hoy: comidas pendientes (desmarcadas) cuentan en proyección, no como comidas', () => {
+  const s = E.replay([init(), { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'desayuno', status: 'confirmed' } }]);
+  const dv = E.dayView(s, '2026-10-15', '2026-10-15');
+  assert.equal(dv.meals.filter(m => m.status === 'pending').length, 4);
+  assert.ok(dv.eatenConfirmed.kcal > 500 && dv.eatenConfirmed.kcal < 650);
+});
 console.log(`\n${n} pruebas OK`);

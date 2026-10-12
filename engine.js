@@ -145,7 +145,7 @@ export function dayView(state, date, today) {
     let status;
     if (set) status = set.status;
     else if (close) status = close.answer === 'not_logged' ? 'unknown' : 'confirmed';
-    else status = date < today ? 'assumed' : 'planned';
+    else status = date < today ? 'assumed' : 'pending';
     const actualItems = (set && set.items) ? set.items : planned;
     const eaten = !['skipped', 'unknown'].includes(status);
     return { id: m.id, name: m.name, status, planned, actualItems, plannedTot: sumItems(state.foods, planned), actualTot: eaten ? sumItems(state.foods, actualItems) : ZERO, touched: !!set };
@@ -155,10 +155,11 @@ export function dayView(state, date, today) {
   const target = mealsTotal(state.foods, v.meals);
   const planned = meals.reduce((a, m) => add(a, m.plannedTot), ZERO);
   const actual = add(meals.reduce((a, m) => add(a, m.actualTot), ZERO), extraTot);
+  const eatenConfirmed = meals.filter(m => ['confirmed', 'edited', 'replaced'].includes(m.status)).reduce((a, m) => add(a, m.actualTot), extraTot);
   const hasData = !!close && close.answer !== 'not_logged';
   const unknown = !!close && close.answer === 'not_logged';
   const confirmedKcal = hasData ? actual.kcal : 0;
-  return { date, version: v, meals, extras, target, planned, actual, close, hasData, unknown, confirmedKcal };
+  return { date, version: v, meals, extras, target, planned, actual, eatenConfirmed, close, hasData, unknown, confirmedKcal };
 }
 
 // ---------- saldo semanal y redistribución (solo carbohidratos, +300/día, caduca el domingo) ----------
@@ -200,7 +201,7 @@ export function redistributionSuggestion(state, date, today) {
   const out = { delta: round(delta), sameDay: [], bankAllowance: 0, excess: 0 };
   if (delta < -P.redistTol) { out.excess = round(-delta); return out; }
   if (delta > P.redistTol) {
-    const future = dv.meals.filter(m => m.status === 'planned' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
+    const future = dv.meals.filter(m => m.status === 'pending' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
     const r = distribute(state.foods, future, delta, ['carb']);
     out.sameDay = r.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
     out.unplaced = round(Math.max(0, r.remaining));
@@ -208,7 +209,7 @@ export function redistributionSuggestion(state, date, today) {
   const bank = weekBank(state, date, today);
   if (bank > P.redistTol && date === today) {
     const allow = Math.min(P.carryCap, bank);
-    const future = dv.meals.filter(m => m.status === 'planned' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
+    const future = dv.meals.filter(m => m.status === 'pending' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
     const r = distribute(state.foods, future, allow, ['carb']);
     out.bankAllowance = round(allow);
     out.bankChanges = r.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));

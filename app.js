@@ -83,9 +83,9 @@ function vHoy(T) {
   h += `<div class="card"><div class="row sp"><div><h3>Peso en ayunas</h3><div class="sub">${todayW.length ? todayW.map(w => `${w.kg} kg${w.fatPct != null ? ' · ' + w.fatPct + ' %' : ''}`).join(' · ') : 'Opcional a diario; también se carga el lunes.'}</div></div>
     <div class="row" style="width:150px"><input id="wkg" type="number" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
   // totales
-  const pct = Math.min(100, dv.actual.kcal / dv.target.kcal * 100);
-  h += `<div class="card"><div class="row sp"><div><div class="sub">${d < T || dv.close ? 'Consumido' : 'Proyectado'}</div><div class="big">${r0(dv.actual.kcal)} <small class="m">/ ${r0(dv.target.kcal)} kcal</small></div></div>
-    <div class="sub num" style="text-align:right">P ${r0(dv.actual.p)} g<br>C ${r0(dv.actual.c)} g<br>G ${r0(dv.actual.f)} g</div></div><div class="bar"><i style="width:${pct}%"></i></div>
+  const pct = Math.min(100, dv.eatenConfirmed.kcal / dv.target.kcal * 100);
+  h += `<div class="card"><div class="row sp"><div><div class="sub">Comido</div><div class="big">${r0(dv.eatenConfirmed.kcal)} <small class="m">/ ${r0(dv.target.kcal)} kcal</small></div><div class="sub">Proyectado si comés lo pendiente: ${r0(dv.actual.kcal)}</div></div>
+    <div class="sub num" style="text-align:right">P ${r0(dv.eatenConfirmed.p)} g<br>C ${r0(dv.eatenConfirmed.c)} g<br>G ${r0(dv.eatenConfirmed.f)} g</div></div><div class="bar"><i style="width:${pct}%"></i></div>
     ${dv.close ? `<div class="sub" style="margin-top:6px">Día cerrado: ${{ all_plan: 'todo según plan', with_changes: 'con cambios', not_logged: 'no registrado' }[dv.close.answer]} <button class="s" data-a="reopen" data-d="${d}">reabrir</button></div>` : ''}</div>`;
   // sugerencias
   const sug = E.redistributionSuggestion(S, d, T);
@@ -99,8 +99,8 @@ function vHoy(T) {
   // comidas
   h += `<h2>Comidas</h2>`;
   for (const m of dv.meals) {
-    const off = ['skipped', 'unknown'].includes(m.status);
-    const tag = { planned: '', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
+    const off = !['confirmed', 'edited', 'replaced'].includes(m.status);
+    const tag = { pending: '<span class="tag">por comer</span>', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
     const open = UI.open[d + m.id];
     h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow" data-a="openm" data-m="${m.id}"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
@@ -113,7 +113,7 @@ function vHoy(T) {
         h += `<div class="it">${sel}<input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${it.unit === 'u' ? 0.5 : 5}"></div>`;
       });
       h += `<div class="sub">${m.actualItems.map(it => it.unit === 'u' ? (S.foods[it.foodId].unitName || 'u') : 'g').join(' · ')} — valores reales; el plan original se conserva.</div>
-        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar real</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
+        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar real</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
   }
@@ -121,7 +121,7 @@ function vHoy(T) {
   h += `<h2>Extras</h2><div class="card">${dv.extras.map(x => `<div class="row sp"><span>${esc(x.name)} ${x.estimated ? '<span class="tag">estimado</span>' : ''}</span><span class="num">${r0(x.kcal)} kcal <button class="s del" data-a="delx" data-x="${x.id}">✕</button></span></div>`).join('') || '<div class="sub">Comida fuera del plan.</div>'}
     <div class="row wrap" style="margin-top:8px"><button class="s" data-a="quick" data-k="200">+200</button><button class="s" data-a="quick" data-k="500">+500</button><button class="s" data-a="quick" data-k="1000">+1.000</button><button class="s" data-a="custom">Personalizado</button></div>
     <div id="customx" class="hidden"><label>Nombre</label><input id="xn" placeholder="Ej.: pizza"><div class="row"><div class="grow"><label>kcal</label><input id="xk" type="number"></div><div class="grow"><label>P</label><input id="xp" type="number"></div><div class="grow"><label>C</label><input id="xc" type="number"></div><div class="grow"><label>G</label><input id="xf" type="number"></div></div><button class="p s" style="margin-top:8px" data-a="addx">Añadir</button></div></div>`;
-  if (d <= T && !dv.close) h += `<button class="p" style="width:100%;margin-top:8px" data-a="close" data-d="${d}" data-v="${dv.meals.some(m => m.touched) || dv.extras.length ? 'with_changes' : 'all_plan'}">Cerrar ${d === T ? 'hoy' : 'este día'}</button>`;
+  if (d <= T && !dv.close) h += `<button class="p" style="width:100%;margin-top:8px" data-a="close" data-manual="1" data-d="${d}" data-v="with_changes">Cerrar ${d === T ? 'hoy' : 'este día'}</button><div class="sub" style="text-align:center;margin-top:6px">Las comidas no marcadas cuentan como no comidas.</div>`;
   return h;
 }
 const mealName = id => (E.versionAt(S, UI.day).meals.find(m => m.id === id) || {}).name || id;
@@ -231,13 +231,17 @@ document.addEventListener('click', async e => {
   switch (a) {
     case 'day': { const n = E.addDays(d, +el.dataset.d); if (n <= T) { UI.day = n; render(); } break; }
     case 'gotoday': UI.day = el.dataset.d; render(); break;
-    case 'close': await emit('DAY_CLOSE', { date: el.dataset.d, answer: el.dataset.v }); toast('Día cerrado'); break;
+    case 'close': {
+      const cd = el.dataset.d, ans = el.dataset.v;
+      if (el.dataset.manual) { const v = E.dayView(S, cd, T); const list = v.meals.filter(m => ['pending', 'assumed'].includes(m.status)).map(m => ['MEAL_SET', { date: cd, mealId: m.id, status: 'skipped' }]); list.push(['DAY_CLOSE', { date: cd, answer: 'with_changes' }]); await emitMany(list); }
+      else await emit('DAY_CLOSE', { date: cd, answer: ans });
+      toast('Día cerrado'); break; }
     case 'reopen': await emit('DAY_CLOSE', { date: d, answer: null }); break;
     case 'addw': { const kg = parseFloat($('#wkg').value.replace(',', '.')); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast('Peso guardado'); } break; }
     case 'toggle': {
       const m = dv().meals.find(x => x.id === el.dataset.m);
-      if (['skipped', 'unknown'].includes(m.status)) await emit('MEAL_RESET', { date: d, mealId: m.id });
-      else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'skipped' });
+      if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) await emit('MEAL_RESET', { date: d, mealId: m.id });
+      else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'confirmed' });
       break; }
     case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
     case 'saveMeal': {
@@ -247,6 +251,7 @@ document.addEventListener('click', async e => {
       const changedFood = items.some((it, i) => it.foodId !== m.planned[i].foodId);
       UI.open[d + m.id] = false;
       await emit('MEAL_SET', { date: d, mealId: m.id, status: changedFood ? 'replaced' : 'edited', items }); toast('Guardado'); break; }
+    case 'skipMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); break;
     case 'resetMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_RESET', { date: d, mealId: el.dataset.m }); break;
     case 'acceptRedist': { const s = E.redistributionSuggestion(S, d, T); await emitMany(s.sameDay.map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: false }])); toast('Redistribución aplicada'); break; }
     case 'acceptBank': { const s = E.redistributionSuggestion(S, d, T); await emitMany(s.bankChanges.map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true }])); toast('Saldo aplicado'); break; }
