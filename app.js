@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.5.1';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -112,10 +112,10 @@ function countdown(time) {
   return `<span class="cd ${diff < -30 ? 'late' : diff <= 5 ? 'now' : ''}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="${C * f} ${C}" transform="rotate(-90 8 8)"/></svg>${time} · ${txt}</span>`;
 }
 function goalBanner(T, E_, TG) {
-  const st = S.settings, ph = st.phases, start = ph[0]?.from || st.startDate, end = st.endDate || E.addDays(ph.at(-1).from, 13);
+  const st = S.settings, ph = st.phases, start = ph[0]?.from || st.startDate, planEnd = st.endDate || E.addDays(ph.at(-1).from, 13), end = st.goalDate || planEnd;
   const left = Math.max(0, E.diffDays(end, T)), total = Math.max(1, E.diffDays(end, start) + 1), done = Math.min(1, Math.max(0, (E.diffDays(T, start) + 1) / total));
   const cols = { volumen: 'var(--acc)', volumen_agresivo: 'var(--p)', mantenimiento: 'var(--f)', deficit: 'var(--c)' };
-  const segs = ph.map((p, i) => { const to = i < ph.length - 1 ? ph[i + 1].from : E.addDays(end, 1); return `<i style="flex:${Math.max(1, E.diffDays(to, p.from))};background:${cols[p.phase] || 'var(--mute)'}"></i>`; }).join('');
+  const segs = ph.map((p, i) => { const to = i < ph.length - 1 ? ph[i + 1].from : E.addDays(Math.max(end, planEnd) === end ? end : planEnd, 1); return `<i style="flex:${Math.max(1, E.diffDays(to, p.from))};background:${cols[p.phase] || 'var(--mute)'}"></i>`; }).join('');
   // silueta que se llena con lo comido, por macro
   const f = Math.min(1, E_.kcal / TG.kcal), kp = E_.p * 4, kc = E_.c * 4, kf = E_.f * 9, kt = Math.max(1, kp + kc + kf);
   const o1 = f * kf / kt, o2 = f * (kf + kc) / kt;
@@ -126,7 +126,7 @@ function goalBanner(T, E_, TG) {
     <g clip-path="url(#silc)"><rect class="tr" x="0" y="0" width="100" height="200" fill="url(#silg)" data-k="sil" data-p="transform" data-from="translateY(200px)" data-to="translateY(${(200 * (1 - f)).toFixed(1)}px)"/></g>
     <g fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1.5">${body}</g></svg>`;
   return `<div class="card goal"><div class="row" style="gap:12px;align-items:center"><div class="grow">
-    <div class="eyebrow">Objetivo actual</div><div class="goalt">Verano en Paraguay</div>
+    <div class="eyebrow">Objetivo actual</div><div class="goalt">${esc(st.goalName || 'Verano en Paraguay')}</div>
     <div class="row" style="gap:8px;align-items:baseline;margin-top:6px"><span class="big" data-count="${left}" data-ck="left">${left}</span><span class="sub">días · ${dLabel(end)}</span></div>
     <div class="phbar">${segs}<b style="left:${(done * 100).toFixed(1)}%"></b></div>
     <div class="sub" style="margin-top:6px">${E.PHASE_LABEL[E.phaseAt(st, T)]} · día ${Math.max(1, E.diffDays(T, start) + 1)} de ${total}</div>
@@ -372,6 +372,10 @@ function vAjustes(T) {
   const f = (k, l, step = 1) => `<div class="it row sp" style="margin:6px 0"><span>${l}</span><input style="width:110px" type="number" step="${step}" data-par="${k}" value="${P[k]}"></div>`;
   return `<h1>Ajustes</h1>
   <div class="card"><div class="row sp"><div><h3>Versión ${APP_VERSION}</h3><div class="sub">${UPD.latest ? (UPD.latest === APP_VERSION ? 'Al día' : 'Disponible: ' + esc(UPD.latest)) : 'Sin comprobar'}</div></div><div class="row"><button class="s" data-a="checkupd">${UPD.checking ? 'Comprobando…' : 'Buscar'}</button><button class="p s" data-a="update">Actualizar</button></div></div><div class="sub" style="margin-top:6px">Actualizar recarga la app desde GitHub. Tus datos no se tocan.</div></div>
+  <div class="card hi"><h3>Objetivo</h3><div class="sub">Lo que se muestra arriba en Hoy, con la cuenta regresiva.</div>
+    <label>Nombre del objetivo</label><input id="gname" value="${esc(S.settings.goalName || 'Verano en Paraguay')}">
+    <div class="row"><div class="grow"><label>Fecha objetivo</label><input id="gdate" type="date" value="${S.settings.goalDate || S.settings.endDate || ''}"></div><div class="grow"><label>o días desde hoy</label><input id="gdays" type="number" inputmode="numeric" placeholder="ej. 70"></div></div>
+    <button class="p s" style="margin-top:8px" data-a="saveGoal">Guardar objetivo</button><div class="sub" style="margin-top:6px">Cambia solo la cuenta regresiva. Las fases del plan se ajustan en Plan.</div></div>
   <div class="card"><h3>Recordatorio diario (Atajos de iOS)</h3><div class="sub">Atajos → Automatización → Nueva → Hora del día: 22:00, diariamente, ejecutar inmediatamente → Acción "Abrir URL" → <code>${esc(location.href.split('#')[0])}</code>. Al abrir, la app te pregunta por el día.</div></div>
   <div class="card"><h3>Parámetros del motor</h3>
   ${f('stepCap', 'Paso semanal máx. (kcal)')}${f('stepCapHyst', 'Paso con histéresis (kcal)')}${f('deadband', 'Banda muerta (kcal)')}${f('carryCap', 'Tope arrastre/día (kcal)')}${f('kcalFloor', 'Piso calórico (kcal)')}${f('calibrationWeeksMin', 'Semanas de calibración')}${f('gBase', 'Velocidad de aprendizaje', 0.05)}
@@ -493,6 +497,8 @@ document.addEventListener('click', async e => {
     case 'planApply': { const P = UI.planImport; if (!P) break; const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       const list = P.newFoods.map(([id, food]) => ['FOOD', { id, food }]); list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: P.meals, reason: 'Plan importado' }]);
       UI.planImport = null; UI.planJson = ''; await emitMany(list); toast('Plan importado · desde ' + dLabel(eff)); backup(); break; }
+    case 'saveGoal': { const n = +$('#gdays').value; const goalDate = n > 0 ? E.addDays(T, n) : $('#gdate').value; const goalName = $('#gname').value.trim() || 'Verano en Paraguay';
+      if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
     case 'backup': backup(); break;
     case 'update': applyUpdate(); break;
     case 'checkupd': checkUpdate(true); break;
