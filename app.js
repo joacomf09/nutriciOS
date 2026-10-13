@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.2';
+export const APP_VERSION = '1.5.3';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -55,6 +55,7 @@ async function emitMany(list) {
 // ---------- utilidades UI ----------
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parseKg = v => { const t = String(v || '').trim().replace(',', '.'); let k = parseFloat(t); if (!t.includes('.') && k >= 300 && k < 3000) k = k / 10; if (!t.includes('.') && k >= 3000 && k < 30000) k = k / 100; return k; };
 const r0 = x => E.round(x).toLocaleString('es-ES');
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
@@ -152,7 +153,7 @@ function vHoy(T) {
   if (d === T) h += goalBanner(T, dv.eatenConfirmed, dv.target);
   // peso
   h += `<div class="card"><div class="row sp"><div><h3>Peso en ayunas</h3><div class="sub">${todayW.length ? todayW.map(w => `${w.kg} kg${w.fatPct != null ? ' · ' + w.fatPct + ' %' : ''}`).join(' · ') : 'Opcional a diario; también se carga el lunes.'}</div></div>
-    <div class="row" style="width:150px"><input id="wkg" type="number" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
+    <div class="row" style="width:150px"><input id="wkg" type="text" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
   // totales
   const off_ = st => !['confirmed', 'edited', 'replaced'].includes(st);
     const E_ = dv.eatenConfirmed, TG = dv.target;
@@ -196,10 +197,10 @@ function vHoy(T) {
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 12 : 5);
-        h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="number" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
+        h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
       h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
-        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="number" inputmode="decimal" placeholder="g" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
+        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="g" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
@@ -250,10 +251,10 @@ function vSemana(T) {
   const wts = E.range(ws, 7).map(d => ({ d, w: S.weights.filter(x => x.date === d) }));
   let h = vPreview(T) + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
   h += `<div class="card"><h3>1. Pesajes en ayunas</h3>`;
-  for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="number" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
+  for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="text" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
   h += `</div><div class="card"><h3>2. Sesiones realizadas</h3><div class="row"><div class="grow"><label>Fuerza</label><input id="sf" type="number" value="${rv.strength ?? ''}"></div><div class="grow"><label>Natación</label><input id="sn" type="number" value="${rv.swim ?? ''}"></div></div></div>
   <div class="card"><h3>3. Contexto</h3><div class="chips" id="ctx">${['semana normal', 'viaje', 'enfermedad', 'alcohol', 'sueño malo', 'estrés'].map(c => `<button data-a="ctx" data-c="${c}" class="${(rv.context || ['semana normal']).includes(c) ? 'on' : ''}">${c}</button>`).join('')}</div><label>Nota</label><input id="note" value="${esc(rv.note || '')}">
-  <label>% grasa Withings (opcional)</label><input id="fatp" type="number" step="0.1" value="${rv.fatPct ?? ''}"></div>
+  <label>% grasa Withings (opcional)</label><input id="fatp" type="text" inputmode="decimal" value="${rv.fatPct ?? ''}"></div>
   <button class="p" style="width:100%" data-a="calc" data-w="${ws}">Calcular propuesta</button>`;
   const p = UI.proposal && UI.proposal.weekStart === ws ? UI.proposal : (S.reviews[ws] ? E.weeklyProposal(S, ws, T) : null);
   if (p) h += vProposal(p, T);
@@ -289,7 +290,7 @@ function vPlan(T) {
   for (const m of (ed || v.meals)) {
     const mt = E.sumItems(S.foods, m.items);
     h += `<div class="card"><div class="row sp"><h3>${esc(m.name)}</h3><span class="sub num">${r0(mt.kcal)} kcal</span></div>`;
-    if (ed) h += `<div class="items">${m.items.map((it, i) => `<div class="it"><span>${esc(S.foods[it.foodId].name)} <small class="m">(${it.unit === 'u' ? S.foods[it.foodId].unitName : 'g'}${it.role === 'carb' ? ', palanca' : it.role === 'nego' ? ', 2ª palanca' : ''})</small></span><input type="number" data-pm="${m.id}" data-pi="${i}" value="${it.qty}"></div>`).join('')}</div>`;
+    if (ed) h += `<div class="items">${m.items.map((it, i) => `<div class="it"><span>${esc(S.foods[it.foodId].name)} <small class="m">(${it.unit === 'u' ? S.foods[it.foodId].unitName : 'g'}${it.role === 'carb' ? ', palanca' : it.role === 'nego' ? ', 2ª palanca' : ''})</small></span><input type="text" inputmode="decimal" data-pm="${m.id}" data-pi="${i}" value="${it.qty}"></div>`).join('')}</div>`;
     else h += `<div class="sub">${m.items.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId].name.split(',')[0].toLowerCase())}${it.role === 'carb' ? '*' : ''}`).join(' · ')}</div>`;
     h += `</div>`;
   }
@@ -385,12 +386,12 @@ function vAjustes(T) {
   <button class="p s" style="margin-top:8px" data-a="savePar">Guardar</button></div>
   <div class="card hi"><h3>+ Nuevo alimento</h3><div class="sub">Valores de la etiqueta. Elegí si son por 100 g o por porción.</div>
     <label>Nombre</label><input id="nf-name" placeholder="Ej.: Crema de cacahuete en polvo">
-    <div class="row"><div class="grow"><label>Los valores son</label><select id="nf-base"><option value="100">por 100 g</option><option value="portion">por porción</option></select></div><div class="grow"><label>Porción (g)</label><input id="nf-pg" type="number" inputmode="decimal" placeholder="ej. 12"></div></div>
-    <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${{ kcal: 'kcal', p: 'Prot g', c: 'Carb g', f: 'Grasa g' }[k]}</label><input id="nf-${k}" type="number" inputmode="decimal" step="0.1"></div>`).join('')}</div>
+    <div class="row"><div class="grow"><label>Los valores son</label><select id="nf-base"><option value="100">por 100 g</option><option value="portion">por porción</option></select></div><div class="grow"><label>Porción (g)</label><input id="nf-pg" type="text" inputmode="decimal" placeholder="ej. 12"></div></div>
+    <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${{ kcal: 'kcal', p: 'Prot g', c: 'Carb g', f: 'Grasa g' }[k]}</label><input id="nf-${k}" type="text" inputmode="decimal" step="0.1"></div>`).join('')}</div>
     <label>Nombre de la porción (opcional)</label><input id="nf-un" placeholder="cda, scoop, rebanada…">
     <button class="p s" style="margin-top:10px" data-a="newFood">Guardar alimento</button></div>
   <div class="card"><h3>Alimentos</h3><div class="sub">Valores por 100 g. Editá con los de tus etiquetas.</div>${Object.entries(S.foods).map(([id, fd]) => `<details style="margin:8px 0"><summary>${esc(fd.name)} <small class="m">${fd.per100.kcal} kcal${fd.unitG ? ` · ${fd.unitName} = ${fd.unitG} g` : ''}</small></summary>
-    <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${k.toUpperCase()}</label><input type="number" step="0.1" data-food="${id}" data-k="${k}" value="${fd.per100[k]}"></div>`).join('')}${fd.unitG ? `<div class="grow"><label>g/${esc(fd.unitName)}</label><input type="number" data-food="${id}" data-k="unitG" value="${fd.unitG}"></div>` : ''}</div>
+    <div class="row">${['kcal', 'p', 'c', 'f'].map(k => `<div class="grow"><label>${k.toUpperCase()}</label><input type="text" inputmode="decimal" data-food="${id}" data-k="${k}" value="${fd.per100[k]}"></div>`).join('')}${fd.unitG ? `<div class="grow"><label>g/${esc(fd.unitName)}</label><input type="number" data-food="${id}" data-k="unitG" value="${fd.unitG}"></div>` : ''}</div>
     <button class="s" style="margin-top:6px" data-a="saveFood" data-food="${id}">Guardar</button></details>`).join('')}</div>
   <div class="card"><h3>Peligro</h3><button class="s del" data-a="wipe">Borrar todos los datos</button></div>
   <div class="sub" style="text-align:center;margin:16px 0">NutriciOS ${APP_VERSION} · motor ${E.CALC_VERSION} · ${EVENTS.length} eventos</div>`;
@@ -411,7 +412,7 @@ document.addEventListener('click', async e => {
       else await emit('DAY_CLOSE', { date: cd, answer: ans });
       burst(); break; }
     case 'reopen': await emit('DAY_CLOSE', { date: d, answer: null }); break;
-    case 'addw': { const kg = parseFloat($('#wkg').value.replace(',', '.')); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast('Peso guardado'); } break; }
+    case 'addw': { const kg = parseKg($('#wkg').value); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast(`Peso guardado: ${kg} kg`); } else toast('Peso no válido');  break; }
     case 'toggle': {
       const m = dv().meals.find(x => x.id === el.dataset.m);
       if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) await emit('MEAL_RESET', { date: d, mealId: m.id });
@@ -446,9 +447,9 @@ document.addEventListener('click', async e => {
     case 'ctx': el.classList.toggle('on'); break;
     case 'calc': {
       const ws = el.dataset.w; const list = [];
-      document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseFloat(inp.value.replace(',', '.')); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
+      document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseKg(inp.value); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
         if (kg > 30 && kg < 250 && (!ex || ex.kg !== kg)) list.push(['WEIGHT', { id: ex ? ex.id : uid(), date: day, kg, fatPct: ex?.fatPct ?? null }]); });
-      const fatp = parseFloat($('#fatp').value); if (fatp > 3 && fatp < 60) { const last = E.addDays(ws, 6); const ex = S.weights.filter(w => w.date <= last).at(-1); if (ex) list.push(['WEIGHT', { ...ex, fatPct: fatp }]); }
+      const fatp = parseFloat(($('#fatp').value || '').replace(',', '.')); if (fatp > 3 && fatp < 60) { const last = E.addDays(ws, 6); const ex = S.weights.filter(w => w.date <= last).at(-1); if (ex) list.push(['WEIGHT', { ...ex, fatPct: fatp }]); }
       list.push(['REVIEW', { weekStart: ws, strength: +$('#sf').value || 0, swim: +$('#sn').value || 0, context: [...document.querySelectorAll('#ctx .on')].map(b => b.dataset.c), note: $('#note').value, fatPct: fatp || null }]);
       await emitMany(list); UI.proposal = E.weeklyProposal(S, ws, T); render(); break; }
     case 'approve': {
@@ -490,7 +491,7 @@ document.addEventListener('click', async e => {
       const food = { name, per100, src: 'usuario ' + T }; if (pg > 0) { food.unitG = pg; food.unitName = $('#nf-un').value.trim() || 'porción'; }
       await emit('FOOD', { id, food }); toast('Alimento guardado'); break; }
     case 'saveFood': { const id = el.dataset.food; const fd = JSON.parse(JSON.stringify(S.foods[id]));
-      document.querySelectorAll(`[data-food="${id}"][data-k]`).forEach(i => { const v = parseFloat(i.value); if (i.dataset.k === 'unitG') fd.unitG = v; else fd.per100[i.dataset.k] = v; });
+      document.querySelectorAll(`[data-food="${id}"][data-k]`).forEach(i => { const v = parseFloat(String(i.value).replace(',', '.')); if (i.dataset.k === 'unitG') fd.unitG = v; else fd.per100[i.dataset.k] = v; });
       fd.src = 'editado ' + T; await emit('FOOD', { id, food: fd }); toast('Alimento actualizado'); break; }
     case 'delw': await emit('WEIGHT', { id: el.dataset.w, deleted: true }); break;
     case 'ai': { const x = E.exportForAI(S, T); download(`nutricios-ia-${T}.txt`, x.text); break; }
