@@ -26,8 +26,8 @@ export const DEFAULT_FOODS = {
   carne:    { name: 'Carne vacuna magra, cruda', per100: { kcal: 170, p: 20, c: 0, f: 10 }, src: 'USDA' },
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
-  pb2:      { name: 'Mantequilla de maní en polvo', per100: { kcal: 450, p: 45, c: 30, f: 13 }, unitG: 12, unitName: 'cda', src: 'genérico — cargar etiqueta' },
-  guacamole: { name: 'Guacamole Hacendado (95 % aguacate)', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
+  pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
+  guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
@@ -221,8 +221,11 @@ export function redistributionSuggestion(state, date, today) {
     const allow = Math.min(P.carryCap, bank);
     const future = dv.meals.filter(m => m.status === 'pending' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
     const r = distribute(state.foods, future, allow, ['carb']);
+    const b = r.remaining > 60 ? boost(state.foods, future, r.remaining) : { changes: [] };
     out.bankAllowance = round(allow);
-    out.bankChanges = r.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
+    out.bankChanges = [...r.changes, ...b.changes].map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
+    const pb = boost(state.foods, future, allow);
+    out.bankPb = pb.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
   }
   return out;
 }
