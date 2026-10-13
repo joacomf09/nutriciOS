@@ -27,6 +27,7 @@ export const DEFAULT_FOODS = {
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Mantequilla de maní en polvo', per100: { kcal: 450, p: 45, c: 30, f: 13 }, unitG: 12, unitName: 'cda', src: 'genérico — cargar etiqueta' },
+  guacamole: { name: 'Guacamole Hacendado (95 % aguacate)', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
@@ -34,7 +35,8 @@ export const DEFAULT_FOODS = {
 export const DEFAULT_MEALS = [
   { id: 'desayuno', name: 'Desayuno', items: [
     { foodId: 'pan', qty: 2, unit: 'u', role: 'fixed' },
-    { foodId: 'huevo', qty: 5, unit: 'u', role: 'nego', min: 3, max: 6, step: 1 } ] },
+    { foodId: 'huevo', qty: 5, unit: 'u', role: 'nego', min: 3, max: 6, step: 1 },
+    { foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' } ] },
   { id: 'almuerzo', name: 'Almuerzo', items: [
     { foodId: 'pollo', qty: 300, unit: 'g', role: 'fixed' },
     { foodId: 'arroz', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
@@ -49,8 +51,7 @@ export const DEFAULT_MEALS = [
     { foodId: 'banana', qty: 1, unit: 'u', role: 'fixed' } ] },
   { id: 'cena', name: 'Cena', items: [
     { foodId: 'carne', qty: 250, unit: 'g', role: 'fixed', choices: ['carne', 'salmon', 'merluza', 'pollo'] },
-    { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
-    { foodId: 'aguacate', qty: 29, unit: 'g', role: 'fixed' } ] },
+    { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 } ] },
 ];
 
 export const DEFAULT_SETTINGS = {

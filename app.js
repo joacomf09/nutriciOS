@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.3';
+export const APP_VERSION = '1.5.4';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -547,11 +547,22 @@ document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } =
   else { r.style.transform = ''; r.style.opacity = ''; } });
 
 // ---------- arranque ----------
+async function migrate() {
+  // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
+  const T = todayStr();
+  if (!S.settings.mig154 && !E.versionAt(S, T).meals.some(m => m.items.some(it => it.foodId === 'guacamole'))) {
+    const cur = JSON.parse(JSON.stringify(E.versionAt(S, T).meals));
+    for (const m of cur) m.items = m.items.filter(it => it.foodId !== 'aguacate');
+    const des = cur.find(m => m.id === 'desayuno'); if (des && !des.items.some(it => it.foodId === 'guacamole')) des.items.push({ foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' });
+    await emitMany([['FOOD', { id: 'guacamole', food: E.DEFAULT_FOODS.guacamole }], ['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Guacamole 29 g/día en el desayuno (reemplaza aguacate de la cena)' }], ['SETTINGS', { mig154: true }]]);
+  }
+}
 async function boot() {
   idb = await openDB();
   EVENTS = (await loadEvents()).sort((a, b) => a.seq - b.seq);
   S = E.replay(EVENTS);
   if (!S.settings) await emit('INIT', { settings: E.DEFAULT_SETTINGS, foods: E.DEFAULT_FOODS, meals: E.DEFAULT_MEALS });
+  await migrate();
   try { if (navigator.storage?.persist) await navigator.storage.persist(); } catch {}
   render();
   checkUpdate();
