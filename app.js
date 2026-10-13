@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.7';
+export const APP_VERSION = '1.5.8';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -22,11 +22,47 @@ function syncUpdateModal(force = false) {
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true"><h3>Hay una actualización</h3><div class="sub" style="margin:6px 0 14px">Nueva versión ${esc(UPD.latest)} disponible (tenés la ${APP_VERSION}). Actualizar recarga la app; tus datos no se tocan.</div><div class="row"><button class="grow" data-a="updlater">Más tarde</button><button class="p grow" data-a="update">Actualizar ahora</button></div></div>`;
   document.body.appendChild(m);
 }
+// ---------- pantallas de actualización: negra, con logo, por pasos ----------
+// 1) "Espere un momento" (comprueba lo publicado)  2) "Actualizando aplicación"  3) tras recargar: "Versión X instalada".
+// El paso 3 lo muestra la app ya recargada: lo que se instaló es el APP_VERSION que está corriendo, no lo que se esperaba.
+const UPD_KEY = 'nutricios_upd';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const UBTN_CLOSE = '<button class="grow" data-a="updclose">Cerrar</button>', UBTN_RETRY = '<button class="p grow" data-a="updretry">Reintentar</button>';
+function updScreen(kind, o = {}) {
+  let el = document.getElementById('updscreen');
+  if (!el) { el = document.createElement('div'); el.id = 'updscreen'; el.className = 'upds'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="ulogo ${kind}"><i class="ring"></i><img src="icon-192.png" alt="NutriciOS"></div><h1 class="utt">${esc(o.title)}</h1>${o.sub ? `<div class="sub usub">${esc(o.sub)}</div>` : ''}${o.buttons ? `<div class="row ubtn">${o.buttons}</div>` : ''}`;
+}
+let updating = false;
 async function applyUpdate() {
-  toast('Actualizando…');
-  try { const regs = await navigator.serviceWorker?.getRegistrations?.() || []; for (const r of regs) await r.unregister(); } catch {}
-  try { for (const k of await caches.keys()) await caches.delete(k); } catch {}
+  if (updating) return; updating = true;
+  document.getElementById('updmodal')?.remove();
+  updScreen('wait', { title: 'Espere un momento', sub: 'Buscando la versión nueva…' });
+  const t0 = Date.now(); let target = null;
+  try {
+    // GitHub Pages sirve con max-age=600: un simple recargar puede devolver el app.js viejo desde la caché y parecer que
+    // "no hace nada". Se fuerzan las descargas sin caché y se comprueba qué versión está realmente publicada.
+    const files = ['app.js', 'engine.js', 'index.html', 'sw.js', 'manifest.webmanifest', './'];
+    const res = await Promise.all(files.map(f => fetch(f, { cache: 'reload' })));
+    target = (await res[0].text()).match(/APP_VERSION = '([^']+)'/)?.[1] || null;
+  } catch { updating = false; updScreen('late', { title: 'Sin conexión', sub: 'No se pudo comprobar la actualización. Probá de nuevo con internet.', buttons: UBTN_CLOSE + UBTN_RETRY }); return; }
+  await sleep(Math.max(0, 1200 - (Date.now() - t0)));
+  if (!target || target === APP_VERSION) {
+    updating = false;
+    updScreen('late', { title: 'Todavía no está lista', sub: `La versión nueva se está publicando y puede tardar hasta 10 minutos en aparecer. Seguís en la ${APP_VERSION}.`, buttons: UBTN_CLOSE + UBTN_RETRY }); return;
+  }
+  updScreen('work', { title: 'Actualizando aplicación', sub: `${APP_VERSION} → ${target}` });
+  try { localStorage.setItem(UPD_KEY, JSON.stringify({ from: APP_VERSION, target, ts: Date.now() })); } catch {}
+  await sleep(1500);
   location.replace(location.pathname + '?v=' + Date.now());
+  setTimeout(() => { updating = false; updScreen('late', { title: 'No se pudo recargar', sub: 'Cerrá la app y abrila de nuevo, o reintentá.', buttons: UBTN_CLOSE + UBTN_RETRY }); }, 8000);
+}
+function showUpdateResult() {
+  let f = null;
+  try { f = JSON.parse(localStorage.getItem(UPD_KEY) || 'null'); localStorage.removeItem(UPD_KEY); } catch {}
+  if (!f || Date.now() - f.ts > 120000) return;
+  if (APP_VERSION === f.target) updScreen('ok', { title: `Versión ${APP_VERSION} instalada`, sub: 'Tus datos no se tocaron. Si algún cambio no se ve todavía, puede tardar hasta 10 minutos en aparecer.', buttons: '<button class="p grow" data-a="updclose">Listo</button>' });
+  else updScreen('late', { title: 'Todavía no se instaló', sub: `Seguís en la versión ${APP_VERSION}. La ${f.target} puede tardar hasta 10 minutos en aparecer.`, buttons: UBTN_CLOSE + UBTN_RETRY });
 }
 
 // ---------- persistencia: log de eventos en IndexedDB (fallback localStorage) ----------
@@ -523,6 +559,8 @@ document.addEventListener('click', async e => {
       if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
     case 'backup': backup(); break;
     case 'update': applyUpdate(); break;
+    case 'updclose': document.getElementById('updscreen')?.remove(); break;
+    case 'updretry': document.getElementById('updscreen')?.remove(); applyUpdate(); break;
     case 'updlater': UPD.dismissed = UPD.latest; document.getElementById('updmodal')?.remove(); break;
     case 'checkupd': checkUpdate(true); break;
     case 'wipe': if (confirmWipe()) { await clearAll(); EVENTS = []; S = E.emptyState(); await boot(); } break;
@@ -590,4 +628,5 @@ async function boot() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S) { checkUpdate(); if (UI.day > todayStr()) UI.day = todayStr(); render(); } });
+showUpdateResult();
 boot();

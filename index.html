@@ -48,6 +48,13 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;b
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{border-radius:99px;padding:6px 12px;min-height:34px;font-size:14px}.chips button.on{background:var(--acc);color:var(--ink-on-acc);border-color:var(--acc)}
 .items .it{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;margin:6px 0}
 .modal{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}.mbox{background:var(--card);border:1px solid var(--acc);border-radius:var(--r);padding:18px;width:100%;max-width:380px}
+.upds{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;gap:12px;animation:ufi .25s ease}
+.ulogo{position:relative;width:136px;height:136px;margin-bottom:10px}.ulogo img{position:absolute;inset:16px;width:104px;height:104px;border-radius:24px}
+.ulogo .ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(232,243,76,.16)}
+.ulogo.wait .ring,.ulogo.work .ring{border-top-color:var(--acc);animation:uspin 1s linear infinite}.ulogo.ok .ring{border-color:var(--acc)}.ulogo.late .ring{border-color:var(--warn)}
+.ulogo.ok::after{content:'\2713';position:absolute;right:-2px;bottom:-2px;width:38px;height:38px;border-radius:50%;background:var(--acc);color:#111;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center}
+.utt{font-size:26px;margin:0}.usub{max-width:300px}.ubtn{margin-top:16px;width:100%;max-width:320px}
+@keyframes uspin{to{transform:rotate(360deg)}}@keyframes ufi{from{opacity:0}}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:14px;z-index:9;max-width:90vw}
 .hidden{display:none}
 small.m{color:var(--mute)}
