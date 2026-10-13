@@ -27,6 +27,7 @@ export const DEFAULT_FOODS = {
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
+  psyllium: { name: 'Psyllium husk (fibra) Pure Diet', per100: { kcal: 366, p: 5.3, c: 0.7, f: 1 }, unitG: 2, unitName: 'cda', src: 'etiqueta (fibra 83 g/100 g)' },
   kiwi:     { name: 'Kiwi', per100: { kcal: 61, p: 1.1, c: 14.7, f: 0.5 }, unitG: 75, unitName: 'kiwi', src: 'USDA (genérico, 1 kiwi ≈ 75 g sin piel)' },
   guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
   natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
@@ -40,7 +41,8 @@ export const DEFAULT_MEALS = [
   { id: 'desayuno', name: 'Desayuno', items: [
     { foodId: 'pan', qty: 2, unit: 'u', role: 'fixed' },
     { foodId: 'huevo', qty: 5, unit: 'u', role: 'nego', min: 3, max: 6, step: 1 },
-    { foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' } ] },
+    { foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' },
+    { foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' } ] },
   { id: 'almuerzo', name: 'Almuerzo', items: [
     { foodId: 'pollo', qty: 300, unit: 'g', role: 'fixed' },
     { foodId: 'arroz', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
@@ -57,7 +59,8 @@ export const DEFAULT_MEALS = [
   { id: 'cena', name: 'Cena', items: [
     { foodId: 'carne', qty: 250, unit: 'g', role: 'fixed', choices: ['carne', 'salmon', 'merluza', 'pollo'] },
     { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
-    { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' } ] },
+    { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' },
+    { foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' } ] },
 ];
 
 export const DEFAULT_SETTINGS = {

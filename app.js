@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.17';
+export const APP_VERSION = '1.5.18';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -669,6 +669,16 @@ async function migrate() {
     const list = [['FOOD', { id: 'natilla', food: E.DEFAULT_FOODS.natilla }]];
     if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Natilla +Proteínas Hacendado como opción (0) en almuerzo y cena' }]);
     list.push(['SETTINGS', { mig1510: true }]);
+    await emitMany(list);
+  }
+  // 1.5.18: psyllium (fibra) 1 cda de 2 g en desayuno y cena, sobre el plan vigente del usuario
+  if (!S.settings.mig1518 && !E.versionAt(S, T).meals.some(m => m.items.some(it => it.foodId === 'psyllium'))) {
+    const cur = JSON.parse(JSON.stringify(E.versionAt(S, T).meals));
+    const tg = cur.filter(m => ['desayuno', 'cena'].includes(m.id));
+    for (const m of tg) m.items.push({ foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' });
+    const list = [['FOOD', { id: 'psyllium', food: E.DEFAULT_FOODS.psyllium }]];
+    if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Psyllium (fibra) 1 cda de 2 g en desayuno y cena' }]);
+    list.push(['SETTINGS', { mig1518: true }]);
     await emitMany(list);
   }
 }
