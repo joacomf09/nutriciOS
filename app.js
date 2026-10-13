@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.10';
+export const APP_VERSION = '1.5.11';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -110,6 +110,7 @@ const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const MON = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const dLabel = s => { const d = E.toDate(s); return `${DOW[(d.getUTCDay() + 6) % 7]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+const foodUnit = id => S.foods[id]?.unitG ? (S.foods[id].unitName || 'u') : 'g';
 const qtyLabel = it => it.unit === 'u' ? `${it.qty}×` : `${it.qty} g`;
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 function download(name, text, mime = 'text/plain') {
@@ -253,7 +254,7 @@ function vHoy(T) {
         h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
       h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
-        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="g" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
+        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${foodUnit(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
@@ -472,8 +473,11 @@ document.addEventListener('click', async e => {
       else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'confirmed' });
       break; }
     case 'addItem': { const mid = el.dataset.m; const fid = $('#addf-' + mid).value, q = parseFloat(($('#addq-' + mid).value || '').replace(',', '.'));
-      if (!(q > 0)) { toast('Indicá los gramos'); break; }
-      const m = dv().meals.find(x => x.id === mid); const items = m.actualItems.map(i => ({ ...i })).concat([{ foodId: fid, qty: q, unit: 'g', role: 'extra' }]);
+      const fu = foodUnit(fid), isU = fu !== 'g';
+      if (!(q > 0)) { toast(isU ? `Indicá cuántos (${fu})` : 'Indicá los gramos'); break; }
+      const m = dv().meals.find(x => x.id === mid); const items = m.actualItems.map(i => ({ ...i }));
+      const zero = items.find(i => i.foodId === fid && i.qty === 0);   // opción en 0 del plan (p. ej. natilla): se completa en vez de duplicar
+      if (zero) zero.qty = q; else items.push({ foodId: fid, qty: q, unit: isU ? 'u' : 'g', role: 'extra' });
       await emit('MEAL_SET', { date: d, mealId: mid, status: 'edited', items }); UI.open[d + mid] = true; render(); toast('Añadido'); break; }
     case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(inp.value) || 0) + parseFloat(el.dataset.s), 2)); break; }
     case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
@@ -571,6 +575,7 @@ function confirmWipe() { if (Date.now() - wipeArmed < 4000) return true; wipeArm
 function backup() { download(`nutricios-respaldo-${todayStr()}.json`, JSON.stringify({ app: 'nutricios', schema: 1, calc: E.CALC_VERSION, exported: new Date().toISOString(), events: EVENTS }), 'application/json'); }
 
 document.addEventListener('change', async e => {
+  if (e.target.id?.startsWith('addf-')) { const q = $('#addq-' + e.target.id.slice(5)); if (q) q.placeholder = foodUnit(e.target.value); return; }
   if (e.target.id === 'imp') {
     const f = e.target.files[0]; if (!f) return;
     try { const j = JSON.parse(await f.text()); if (j.app !== 'nutricios' || !Array.isArray(j.events)) throw 0;
@@ -605,7 +610,7 @@ document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } =
 // ---------- arranque ----------
 async function migrate() {
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
-  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal) && !String(S.foods[id].src || '').startsWith('editado'));
+  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));
   // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
   const T = todayStr();

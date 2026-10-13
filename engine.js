@@ -28,7 +28,7 @@ export const DEFAULT_FOODS = {
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
   guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
-  natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'natilla', src: 'etiqueta' },
+  natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
