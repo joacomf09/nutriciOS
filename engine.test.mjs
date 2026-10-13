@@ -116,4 +116,44 @@ t('omitir post-gym con carbos al tope usa maní en polvo antes del saldo', () =>
   const r = E.redistributionSuggestion(E.replay(ev), '2026-10-15', '2026-10-15');
   assert.ok(r.sameDay.some(c => c.foodId === 'pb2')); assert.ok(r.unplaced > 0);
 });
+
+// ---------- pista de carbos en la última comida ----------
+const D = '2026-10-15';
+const conf = (ids, extra = []) => [init(), ...ids.map(mealId => ({ type: 'MEAL_SET', payload: { date: D, mealId, status: 'confirmed' } })), ...extra];
+const prev4 = ['desayuno', 'almuerzo', 'merienda', 'post'];
+const stepK = E.itemMacros(E.DEFAULT_FOODS, { foodId: 'pasta', qty: 5, unit: 'g' }).kcal;
+
+t('pista carbos: todo según plan → sin pista (|Δ| ≤ 50)', () => {
+  assert.equal(E.lastMealCarbHint(E.replay(conf(prev4)), D, D), null);
+});
+t('pista carbos: me falta → ↑ pasta y la suma coincide con el faltante', () => {
+  const almu = E.DEFAULT_MEALS.find(m => m.id === 'almuerzo').items.map(i => ({ ...i, qty: i.foodId === 'arroz' ? 50 : i.qty }));
+  const ev = conf(['desayuno', 'merienda', 'post'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'almuerzo', status: 'edited', items: almu } }]);
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.ok(h && h.dir === 1 && h.delta > 50); assert.equal(h.mealId, 'cena');
+  assert.deepEqual(h.items.map(x => x.foodId), ['pasta']);
+  assert.ok(h.items[0].dq > 0 && h.items[0].dq % 5 === 0);
+  assert.ok(Math.abs(h.covered - h.delta) <= stepK / 2 + 1, `cubre ${h.covered} de ${h.delta}`);
+});
+t('pista carbos: me pasé → ↓ pasta, sin bajar del mínimo', () => {
+  const h = E.lastMealCarbHint(E.replay(conf(prev4, [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 150, p: 0, c: 0, f: 0 } }])), D, D);
+  assert.ok(h && h.dir === -1 && h.items[0].dq < 0); assert.ok(h.items[0].qty >= 40);
+  assert.ok(Math.abs(h.covered - h.delta) <= stepK / 2 + 1);
+});
+const withPasta = q => ({ type: 'VERSION', payload: { id: 'v2', effectiveFrom: '2026-10-12', meals: E.DEFAULT_MEALS.map(m => m.id !== 'cena' ? m : { ...m, items: m.items.map(i => i.foodId === 'pasta' ? { ...i, qty: q } : i) }) } });
+t('pista carbos: pasta en el mínimo y me pasé → "min", sin cambio', () => {
+  const ev = [init(), withPasta(40), ...prev4.map(mealId => ({ type: 'MEAL_SET', payload: { date: D, mealId, status: 'confirmed' } })), { type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 300, p: 0, c: 0, f: 0 } }];
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.equal(h.items[0].dq, 0); assert.equal(h.items[0].atLimit, 'min'); assert.equal(h.covered, 0);
+});
+t('pista carbos: pasta en el máximo y me falta → "max"', () => {
+  const ev = [init(), withPasta(160), { type: 'MEAL_SET', payload: { date: D, mealId: 'desayuno', status: 'confirmed' } }];
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.equal(h.dir, 1); assert.equal(h.items[0].atLimit, 'max');
+});
+t('pista carbos: cena ya marcada → sin pista; no modifica el estado', () => {
+  const s = E.replay(conf([...prev4, 'cena'], [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 400, p: 0, c: 0, f: 0 } }]));
+  assert.equal(E.lastMealCarbHint(s, D, D), null);
+  const s2 = E.replay(conf(prev4)); const before = JSON.stringify(s2); E.lastMealCarbHint(s2, D, D); assert.equal(JSON.stringify(s2), before);
+});
 console.log(`\n${n} pruebas OK`);

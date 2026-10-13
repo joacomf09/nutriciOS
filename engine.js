@@ -238,6 +238,30 @@ export function redistributionSuggestion(state, date, today) {
   return out;
 }
 
+// Pista de carbos en la ÚLTIMA comida del día (solo se muestra; no emite eventos).
+// Cuenta: lo ya marcado del día (+ extras) + lo planificado de la última comida, contra la meta.
+export function lastMealCarbHint(state, date, today) {
+  const P = state.settings.params; const dv = dayView(state, date, today);
+  const last = dv.meals[dv.meals.length - 1];
+  if (!last || last.status !== 'pending') return null;
+  const carbs = last.planned.filter(it => it.role === 'carb' && it.qty > 0);
+  if (!carbs.length) return null;
+  const projected = dv.eatenConfirmed.kcal + last.plannedTot.kcal;
+  const delta = round(dv.target.kcal - projected); // >0 falta, <0 sobra
+  if (Math.abs(delta) <= P.redistTol) return null;
+  const dir = Math.sign(delta);
+  const r = distribute(state.foods, [{ id: last.id, items: carbs }], delta, ['carb']);
+  const items = carbs.map(it => {
+    const ch = r.changes.find(c => c.foodId === it.foodId);
+    const qty = ch ? ch.qty : it.qty, dq = round(qty - it.qty, 2);
+    const kcal = round(itemMacros(state.foods, { ...it, qty: dq }).kcal);
+    const atLimit = dq === 0 ? (dir > 0 && it.qty >= (it.max ?? Infinity) ? 'max' : dir < 0 && it.qty <= (it.min ?? 0) ? 'min' : null) : null;
+    return { foodId: it.foodId, unit: it.unit, from: it.qty, qty, dq, kcal, atLimit };
+  });
+  const covered = items.reduce((a, x) => a + x.kcal, 0);
+  return { mealId: last.id, delta, dir, projected: round(projected), target: round(dv.target.kcal), items, covered: round(covered), remaining: round(delta - covered) };
+}
+
 // ---------- peso: tendencia robusta ----------
 export function theilSen(points) { // points: [{x: día, y: kg}]
   const s = [];

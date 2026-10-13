@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.12';
+export const APP_VERSION = '1.5.13';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -232,10 +232,14 @@ function vHoy(T) {
       ${sug.bankEgg?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Huevos: ${lab(sug.bankEgg)} · ${r0(sug.bankEgg.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="egg">Aceptar</button></div>` : ''}
       ${sug.bankPb?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Cacahuete en polvo: ${lab(sug.bankPb)} · ${r0(sug.bankPb.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="pb">Aceptar</button></div>` : ''}
       <div class="sub" style="margin-top:6px">Caduca el domingo.</div></div>`; }
-    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa.</div>`;
+    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa solo.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida ves cuánto podrías bajar el carbo.' : ''}</div>`;
   }
   // comidas
   h += `<h2>Comidas</h2>`;
+  const hint = E.lastMealCarbHint(S, d, T);
+  const hintTxt = x => x.dq > 0 ? `↑ +${E.round(x.dq)}${x.unit === 'u' ? '' : ' g'} para llegar a la meta (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `↓ −${E.round(-x.dq)}${x.unit === 'u' ? '' : ' g'} para no pasarte (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? 'ya al máximo' : x.atLimit === 'min' ? 'ya al mínimo' : '';
+  const hintFor = (m, foodId) => { if (!hint || hint.mealId !== m.id) return ''; const x = hint.items.find(y => y.foodId === foodId); const t = x && hintTxt(x); return t ? `<div class="chint">${t}</div>` : ''; };
+  const hintRest = () => Math.abs(hint.remaining) > 50 ? `<div class="chint">${hint.dir > 0 ? `Quedan ${r0(hint.remaining)} kcal que el carbo no cubre.` : `Quedan ${r0(-hint.remaining)} kcal sobre la meta que el carbo no compensa.`}</div>` : '';
   for (const m of dv.meals) {
     const off = !['confirmed', 'edited', 'replaced'].includes(m.status);
     const tag = { pending: '<span class="tag">por comer</span>', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
@@ -244,7 +248,9 @@ function vHoy(T) {
     const cdn = d === T && m.status === 'pending' ? countdown(mt) : '';
     h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
-      <div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
+      ${hint && hint.mealId === m.id
+        ? `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `<div>${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}</div>${it.role === 'carb' ? hintFor(m, it.foodId) : ''}`).join('')}${hintRest()}</div>`
+        : `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div>`}<div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
       h += `<div class="items" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
@@ -252,6 +258,7 @@ function vHoy(T) {
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 12 : 5);
         h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
+        if (it.role === 'carb') h += hintFor(m, it.foodId);
       });
       h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
         <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${foodUnit(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
