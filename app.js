@@ -1,13 +1,26 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.6';
+export const APP_VERSION = '1.5.7';
 // ---------- actualización: compara con version.json publicado ----------
-const UPD = { latest: null, checking: false };
+const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
   UPD.checking = true; if (manual) render();
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const j = await r.json(); UPD.latest = j.version; }
   catch { if (manual) toast('Sin conexión: no se pudo comprobar'); }
   UPD.checking = false; render();
   if (manual && UPD.latest === APP_VERSION) toast('Ya tenés la última versión');
+  syncUpdateModal(manual);
+}
+// Pop-up de actualización: vive fuera de #app (render() no lo toca). "Más tarde" lo oculta para esa versión
+// hasta que se reinicie la app; el aviso de arriba y Ajustes → Actualizar siguen disponibles.
+function syncUpdateModal(force = false) {
+  const has = UPD.latest && UPD.latest !== APP_VERSION;
+  const old = document.getElementById('updmodal');
+  if (!has) { old?.remove(); return; }
+  if (old) return;
+  if (!force && UPD.dismissed === UPD.latest) return;
+  const m = document.createElement('div'); m.id = 'updmodal'; m.className = 'modal';
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true"><h3>Hay una actualización</h3><div class="sub" style="margin:6px 0 14px">Nueva versión ${esc(UPD.latest)} disponible (tenés la ${APP_VERSION}). Actualizar recarga la app; tus datos no se tocan.</div><div class="row"><button class="grow" data-a="updlater">Más tarde</button><button class="p grow" data-a="update">Actualizar ahora</button></div></div>`;
+  document.body.appendChild(m);
 }
 async function applyUpdate() {
   toast('Actualizando…');
@@ -510,6 +523,7 @@ document.addEventListener('click', async e => {
       if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
     case 'backup': backup(); break;
     case 'update': applyUpdate(); break;
+    case 'updlater': UPD.dismissed = UPD.latest; document.getElementById('updmodal')?.remove(); break;
     case 'checkupd': checkUpdate(true); break;
     case 'wipe': if (confirmWipe()) { await clearAll(); EVENTS = []; S = E.emptyState(); await boot(); } break;
   }
