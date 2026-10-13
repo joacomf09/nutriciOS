@@ -60,7 +60,8 @@ export const DEFAULT_MEALS = [
     { foodId: 'carne', qty: 250, unit: 'g', role: 'fixed', choices: ['carne', 'salmon', 'merluza', 'pollo'] },
     { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
     { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' },
-    { foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' } ] },
+    { foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' },
+    { foodId: 'kiwi', qty: 2, unit: 'u', role: 'fixed' } ] },
 ];
 
 export const DEFAULT_SETTINGS = {

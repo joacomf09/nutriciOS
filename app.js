@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.18';
+export const APP_VERSION = '1.5.19';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -679,6 +679,16 @@ async function migrate() {
     const list = [['FOOD', { id: 'psyllium', food: E.DEFAULT_FOODS.psyllium }]];
     if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Psyllium (fibra) 1 cda de 2 g en desayuno y cena' }]);
     list.push(['SETTINGS', { mig1518: true }]);
+    await emitMany(list);
+  }
+  // 1.5.19: 2 kiwis en la cena (a veces 1: se ajusta en Modificar)
+  if (!S.settings.mig1519 && !E.versionAt(S, T).meals.some(m => m.items.some(it => it.foodId === 'kiwi'))) {
+    const cur = JSON.parse(JSON.stringify(E.versionAt(S, T).meals));
+    const tg = cur.filter(m => m.id === 'cena');
+    for (const m of tg) m.items.push({ foodId: 'kiwi', qty: 2, unit: 'u', role: 'fixed' });
+    const list = [];
+    if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: '2 kiwis en la cena' }]);
+    list.push(['SETTINGS', { mig1519: true }]);
     await emitMany(list);
   }
 }
