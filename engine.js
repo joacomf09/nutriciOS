@@ -28,6 +28,7 @@ export const DEFAULT_FOODS = {
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
   guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
+  natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'natilla', src: 'etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
@@ -41,7 +42,8 @@ export const DEFAULT_MEALS = [
     { foodId: 'pollo', qty: 300, unit: 'g', role: 'fixed' },
     { foodId: 'arroz', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
     { foodId: 'lentejas', qty: 100, unit: 'g', role: 'fixed' },
-    { foodId: 'aceite', qty: 5, unit: 'g', role: 'fixed' } ] },
+    { foodId: 'aceite', qty: 5, unit: 'g', role: 'fixed' },
+    { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' } ] },
   { id: 'merienda', name: 'Merienda (panqueques)', items: [
     { foodId: 'avena', qty: 80, unit: 'g', role: 'carb', min: 40, max: 120, step: 5 },
     { foodId: 'huevo', qty: 4, unit: 'u', role: 'nego', min: 2, max: 5, step: 1 },
@@ -51,7 +53,8 @@ export const DEFAULT_MEALS = [
     { foodId: 'banana', qty: 1, unit: 'u', role: 'fixed' } ] },
   { id: 'cena', name: 'Cena', items: [
     { foodId: 'carne', qty: 250, unit: 'g', role: 'fixed', choices: ['carne', 'salmon', 'merluza', 'pollo'] },
-    { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 } ] },
+    { foodId: 'pasta', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
+    { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' } ] },
 ];
 
 export const DEFAULT_SETTINGS = {
@@ -398,7 +401,7 @@ export function exportForAI(state, today) {
   const csvH = ['semana,fase,dias_cerrados,cobertura,ingesta_media,pendiente_kg_sem,pesajes,tdee_est,ic,whoop_7d_30d'].concat(hist.map(h => [h.weekStart, h.phase, h.closedDays, round(h.coverage, 2), h.intake == null ? '' : round(h.intake), h.slopeWeek == null ? '' : round(h.slopeWeek, 2), h.weighins, h.tdee, h.ci, h.whoopRatio == null ? '' : round(h.whoopRatio, 2)].join(',')));
   const v = versionAt(state, today); const tot = mealsTotal(state.foods, v.meals);
   const fat = fatStatus(state);
-  const plan = v.meals.map(m => `- ${m.name}: ` + m.items.map(it => `${it.qty}${it.unit === 'u' ? ' ' + (state.foods[it.foodId].unitName || 'u') : ' g'} ${state.foods[it.foodId].name}`).join(', ')).join('\n');
+  const plan = v.meals.map(m => `- ${m.name}: ` + m.items.filter(it => it.qty > 0).map(it => `${it.qty}${it.unit === 'u' ? ' ' + (state.foods[it.foodId].unitName || 'u') : ' g'} ${state.foods[it.foodId].name}`).join(', ')).join('\n');
   const prompt = `Sos mi analista de nutrición deportiva. Abajo van los datos de mi app NutriciOS (motor ${CALC_VERSION}).
 Contexto: hombre, ${S.heightCm} cm, fase actual ${PHASE_LABEL[phaseAt(S, today)]}. Calendario de fases: ${S.phases.map(p => p.from + ' ' + PHASE_LABEL[p.phase]).join(' → ')}.
 Reglas de mi app: el gasto se estima con ingesta confirmada + tendencia de peso (WHOOP solo como contexto); la grasa de Withings solo decide la fase (límite de salida +${S.exitFatPoints} puntos); la proteína de carnes/pescado/pollo es fija; la palanca son carbohidratos y luego huevos/whey; cambios semanales de ±${S.params.stepCap} kcal con banda muerta de ${S.params.deadband}.

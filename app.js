@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.9';
+export const APP_VERSION = '1.5.10';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -243,7 +243,7 @@ function vHoy(T) {
     const cdn = d === T && m.status === 'pending' ? countdown(mt) : '';
     h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
-      <div class="sub">${m.actualItems.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
+      <div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div><div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
       h += `<div class="items" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
@@ -344,7 +344,7 @@ function vPlan(T) {
     const mt = E.sumItems(S.foods, m.items);
     h += `<div class="card"><div class="row sp"><h3>${esc(m.name)}</h3><span class="sub num">${r0(mt.kcal)} kcal</span></div>`;
     if (ed) h += `<div class="items">${m.items.map((it, i) => `<div class="it"><span>${esc(S.foods[it.foodId].name)} <small class="m">(${it.unit === 'u' ? S.foods[it.foodId].unitName : 'g'}${it.role === 'carb' ? ', palanca' : it.role === 'nego' ? ', 2ª palanca' : ''})</small></span><input type="text" inputmode="decimal" data-pm="${m.id}" data-pi="${i}" value="${it.qty}"></div>`).join('')}</div>`;
-    else h += `<div class="sub">${m.items.map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId].name.split(',')[0].toLowerCase())}${it.role === 'carb' ? '*' : ''}`).join(' · ')}</div>`;
+    else h += `<div class="sub">${m.items.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId].name.split(',')[0].toLowerCase())}${it.role === 'carb' ? '*' : ''}`).join(' · ')}</div>`;
     h += `</div>`;
   }
   h += ed ? `<div class="row"><button class="p" data-a="savePlan">Guardar nueva versión</button><button data-a="cancelPlan">Cancelar</button></div>` : `<div class="sub">* palanca de ajuste (carbohidratos).</div><button style="margin-top:8px" data-a="editPlan">Editar plan</button>`;
@@ -605,7 +605,7 @@ document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } =
 // ---------- arranque ----------
 async function migrate() {
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
-  const upd = ['guacamole', 'pb2', 'lentejas'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal) && !String(S.foods[id].src || '').startsWith('editado'));
+  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));
   // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
   const T = todayStr();
@@ -614,6 +614,16 @@ async function migrate() {
     for (const m of cur) m.items = m.items.filter(it => it.foodId !== 'aguacate');
     const des = cur.find(m => m.id === 'desayuno'); if (des && !des.items.some(it => it.foodId === 'guacamole')) des.items.push({ foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' });
     await emitMany([['FOOD', { id: 'guacamole', food: E.DEFAULT_FOODS.guacamole }], ['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Guacamole 29 g/día en el desayuno (reemplaza aguacate de la cena)' }], ['SETTINGS', { mig154: true }]]);
+  }
+  // 1.5.10: natilla proteica Hacendado como opción en 0 en almuerzo y cena (se parte del plan vigente del usuario, sin tocar nada más)
+  if (!S.settings.mig1510 && !E.versionAt(S, T).meals.some(m => m.items.some(it => it.foodId === 'natilla'))) {
+    const cur = JSON.parse(JSON.stringify(E.versionAt(S, T).meals));
+    const tg = cur.filter(m => ['almuerzo', 'cena'].includes(m.id));
+    for (const m of tg) m.items.push({ foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' });
+    const list = [['FOOD', { id: 'natilla', food: E.DEFAULT_FOODS.natilla }]];
+    if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Natilla +Proteínas Hacendado como opción (0) en almuerzo y cena' }]);
+    list.push(['SETTINGS', { mig1510: true }]);
+    await emitMany(list);
   }
 }
 async function boot() {
