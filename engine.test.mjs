@@ -162,8 +162,21 @@ t('pista carbos: cena comida antes → la pista va a la merienda (última pendie
   assert.equal(h.mealId, 'merienda'); assert.equal(h.dir, -1); assert.deepEqual(h.items.map(x => x.foodId), ['avena']);
   assert.ok(Math.abs(h.delta + 200) <= 5, `delta ${h.delta}`); // lo planificado de merienda y post-gym cuenta
 });
-t('pista carbos: si solo queda post-gym (sin carbos) no hay pista', () => {
+t('pista: solo queda post-gym y me pasé → sin pista (no se toca el whey)', () => {
   assert.equal(E.lastMealCarbHint(E.replay(conf(['desayuno', 'almuerzo', 'merienda', 'cena'], [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 300, p: 0, c: 0, f: 0 } }])), D, D), null);
+});
+t('pista: merienda omitida y solo queda post-gym → añadir cacahuete en polvo y avena al post-gym', () => {
+  const ev = conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'merienda', status: 'skipped' } }]);
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.equal(h.mealId, 'post'); assert.ok(h.adds); assert.equal(h.dir, 1);
+  assert.deepEqual(h.items.map(x => x.foodId), ['pb2', 'avena']); assert.equal(h.items[0].qty, 36);
+  assert.ok(h.items[1].qty % 5 === 0 && h.items[1].qty <= 120);
+  assert.ok(h.covered <= h.delta + 20, `cubre ${h.covered} de ${h.delta}`);
+});
+t('pista: falta poco y solo queda post-gym → solo cacahuete en polvo', () => {
+  const ev = conf(['desayuno', 'almuerzo', 'merienda', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'cena', status: 'edited', items: [{ foodId: 'carne', qty: 250, unit: 'g', role: 'fixed' }, { foodId: 'pasta', qty: 55, unit: 'g', role: 'carb' }] } }]);
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.equal(h.mealId, 'post'); assert.deepEqual(h.items.map(x => x.foodId), ['pb2']);
 });
 t('orden de marcado: markedOrd sigue el orden en que se marcan y no cambia al editar', () => {
   const s = E.replay(conf(['cena', 'desayuno'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'cena', status: 'skipped' } }]));

@@ -245,12 +245,24 @@ export function lastMealCarbHint(state, date, today) {
   // Última comida PENDIENTE (en orden del plan) que tenga carbos; las demás pendientes cuentan con lo planificado.
   const pending = dv.meals.filter(m => m.status === 'pending');
   const withCarbs = pending.filter(m => m.planned.some(it => it.role === 'carb' && it.qty > 0));
-  const last = withCarbs[withCarbs.length - 1];
-  if (!last) return null;
-  const carbs = last.planned.filter(it => it.role === 'carb' && it.qty > 0);
   const projected = dv.eatenConfirmed.kcal + pending.reduce((a, m) => a + m.plannedTot.kcal, 0);
   const delta = round(dv.target.kcal - projected); // >0 falta, <0 sobra
-  if (Math.abs(delta) <= P.redistTol) return null;
+  if (!pending.length || Math.abs(delta) <= P.redistTol) return null;
+  let last = withCarbs[withCarbs.length - 1];
+  if (!last) {
+    // Ninguna comida pendiente tiene carbos (p. ej. solo queda el post-gym): si falta energía, sugerir AÑADIR
+    // cacahuete en polvo (hasta 36 g, pasos de 12) y luego avena (pasos de 5 g, hasta 120 g) a la última pendiente.
+    if (delta <= 0) return null;
+    last = pending[pending.length - 1];
+    const add = [], kc = (foodId, qty) => itemMacros(state.foods, { foodId, qty, unit: 'g' }).kcal;
+    let rem = delta;
+    if (state.foods.pb2) { const per = kc('pb2', 12); const n = Math.min(3, Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'pb2', unit: 'g', from: 0, qty: 12 * n, dq: 12 * n, kcal: round(kc('pb2', 12 * n)), add: true, atLimit: null }); rem -= kc('pb2', 12 * n); } }
+    if (state.foods.avena && rem > P.redistTol) { const per = kc('avena', 5); const n = Math.min(24, Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'avena', unit: 'g', from: 0, qty: 5 * n, dq: 5 * n, kcal: round(kc('avena', 5 * n)), add: true, atLimit: null }); rem -= kc('avena', 5 * n); } }
+    if (!add.length) return null;
+    const covered = add.reduce((a, x) => a + x.kcal, 0);
+    return { mealId: last.id, delta, dir: 1, projected: round(projected), target: round(dv.target.kcal), items: add, adds: true, covered: round(covered), remaining: round(delta - covered) };
+  }
+  const carbs = last.planned.filter(it => it.role === 'carb' && it.qty > 0);
   const dir = Math.sign(delta);
   const r = distribute(state.foods, [{ id: last.id, items: carbs }], delta, ['carb']);
   const items = carbs.map(it => {
