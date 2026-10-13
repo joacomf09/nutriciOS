@@ -100,7 +100,7 @@ export function reduce(state, ev) {
       if (!p.deleted) s.weights.push({ id: p.id, date: p.date, kg: p.kg, fatPct: p.fatPct ?? null, source: p.source || 'withings_body_smart' });
       s.weights.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
       break; }
-    case 'MEAL_SET': (s.mealSets[p.date] ||= {})[p.mealId] = { status: p.status, items: p.items ? clone(p.items) : null }; break;
+    case 'MEAL_SET': { const prev = s.mealSets[p.date]?.[p.mealId]; s._ord = (s._ord || 0) + 1; (s.mealSets[p.date] ||= {})[p.mealId] = { status: p.status, items: p.items ? clone(p.items) : null, ord: prev?.ord ?? s._ord }; break; }
     case 'MEAL_RESET': if (s.mealSets[p.date]) delete s.mealSets[p.date][p.mealId]; break;
     case 'OVERRIDE': (s.overrides[p.date] ||= []).push(clone(p)); break;
     case 'EXTRA': (s.extras[p.date] ||= []).push({ id: p.id, name: p.name, kcal: p.kcal, p: p.p || 0, c: p.c || 0, f: p.f || 0, estimated: !!p.estimated }); break;
@@ -155,7 +155,7 @@ export function dayView(state, date, today) {
     else status = date < today ? 'assumed' : 'pending';
     const actualItems = (set && set.items) ? set.items : planned;
     const eaten = !['skipped', 'unknown'].includes(status);
-    return { id: m.id, name: m.name, status, planned, actualItems, plannedTot: sumItems(state.foods, planned), actualTot: eaten ? sumItems(state.foods, actualItems) : ZERO, touched: !!set };
+    return { id: m.id, name: m.name, status, planned, actualItems, plannedTot: sumItems(state.foods, planned), actualTot: eaten ? sumItems(state.foods, actualItems) : ZERO, touched: !!set, markedOrd: set ? set.ord : null };
   });
   const extras = state.extras[date] || [];
   const extraTot = extras.reduce((a, x) => add(a, x), ZERO);
@@ -238,15 +238,17 @@ export function redistributionSuggestion(state, date, today) {
   return out;
 }
 
-// Pista de carbos en la ÚLTIMA comida del día (solo se muestra; no emite eventos).
-// Cuenta: lo ya marcado del día (+ extras) + lo planificado de la última comida, contra la meta.
+// Pista de carbos en la última comida PENDIENTE con carbos (solo se muestra; no emite eventos).
+// Cuenta: lo ya marcado del día (+ extras) + lo planificado de TODAS las comidas pendientes, contra la meta.
 export function lastMealCarbHint(state, date, today) {
   const P = state.settings.params; const dv = dayView(state, date, today);
-  const last = dv.meals[dv.meals.length - 1];
-  if (!last || last.status !== 'pending') return null;
+  // Última comida PENDIENTE (en orden del plan) que tenga carbos; las demás pendientes cuentan con lo planificado.
+  const pending = dv.meals.filter(m => m.status === 'pending');
+  const withCarbs = pending.filter(m => m.planned.some(it => it.role === 'carb' && it.qty > 0));
+  const last = withCarbs[withCarbs.length - 1];
+  if (!last) return null;
   const carbs = last.planned.filter(it => it.role === 'carb' && it.qty > 0);
-  if (!carbs.length) return null;
-  const projected = dv.eatenConfirmed.kcal + last.plannedTot.kcal;
+  const projected = dv.eatenConfirmed.kcal + pending.reduce((a, m) => a + m.plannedTot.kcal, 0);
   const delta = round(dv.target.kcal - projected); // >0 falta, <0 sobra
   if (Math.abs(delta) <= P.redistTol) return null;
   const dir = Math.sign(delta);

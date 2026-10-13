@@ -147,7 +147,7 @@ t('pista carbos: pasta en el mínimo y me pasé → "min", sin cambio', () => {
   assert.equal(h.items[0].dq, 0); assert.equal(h.items[0].atLimit, 'min'); assert.equal(h.covered, 0);
 });
 t('pista carbos: pasta en el máximo y me falta → "max"', () => {
-  const ev = [init(), withPasta(160), { type: 'MEAL_SET', payload: { date: D, mealId: 'desayuno', status: 'confirmed' } }];
+  const ev = [init(), withPasta(160), ...['desayuno', 'post'].map(mealId => ({ type: 'MEAL_SET', payload: { date: D, mealId, status: 'confirmed' } })), ...['almuerzo', 'merienda'].map(mealId => ({ type: 'MEAL_SET', payload: { date: D, mealId, status: 'skipped' } }))];
   const h = E.lastMealCarbHint(E.replay(ev), D, D);
   assert.equal(h.dir, 1); assert.equal(h.items[0].atLimit, 'max');
 });
@@ -155,5 +155,19 @@ t('pista carbos: cena ya marcada → sin pista; no modifica el estado', () => {
   const s = E.replay(conf([...prev4, 'cena'], [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 400, p: 0, c: 0, f: 0 } }]));
   assert.equal(E.lastMealCarbHint(s, D, D), null);
   const s2 = E.replay(conf(prev4)); const before = JSON.stringify(s2); E.lastMealCarbHint(s2, D, D); assert.equal(JSON.stringify(s2), before);
+});
+t('pista carbos: cena comida antes → la pista va a la merienda (última pendiente con carbos) y cuenta lo pendiente', () => {
+  const ev = conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 200, p: 0, c: 0, f: 0 } }]);
+  const h = E.lastMealCarbHint(E.replay(ev), D, D);
+  assert.equal(h.mealId, 'merienda'); assert.equal(h.dir, -1); assert.deepEqual(h.items.map(x => x.foodId), ['avena']);
+  assert.ok(Math.abs(h.delta + 200) <= 5, `delta ${h.delta}`); // lo planificado de merienda y post-gym cuenta
+});
+t('pista carbos: si solo queda post-gym (sin carbos) no hay pista', () => {
+  assert.equal(E.lastMealCarbHint(E.replay(conf(['desayuno', 'almuerzo', 'merienda', 'cena'], [{ type: 'EXTRA', payload: { date: D, id: 'x1', name: 'x', kcal: 300, p: 0, c: 0, f: 0 } }])), D, D), null);
+});
+t('orden de marcado: markedOrd sigue el orden en que se marcan y no cambia al editar', () => {
+  const s = E.replay(conf(['cena', 'desayuno'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'cena', status: 'skipped' } }]));
+  const dv = E.dayView(s, D, D); const o = id => dv.meals.find(m => m.id === id).markedOrd;
+  assert.ok(o('cena') < o('desayuno')); assert.equal(o('almuerzo'), null);
 });
 console.log(`\n${n} pruebas OK`);

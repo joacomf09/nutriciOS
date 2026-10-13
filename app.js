@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.13';
+export const APP_VERSION = '1.5.14';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -128,8 +128,11 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
   const f = { hoy: vHoy, semana: vSemana, plan: vPlan, datos: vDatos, ajustes: vAjustes }[UI.tab];
   const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
+  const before = {}; document.querySelectorAll('[data-meal]').forEach(el => before[el.dataset.meal] = el.getBoundingClientRect().top);
   $('#app').innerHTML = banner + f(T);
   animate();
+  document.querySelectorAll('[data-meal]').forEach(el => { const t0 = before[el.dataset.meal]; if (t0 == null) return; const dy = t0 - el.getBoundingClientRect().top; if (Math.abs(dy) < 4) return;
+    el.style.transition = 'none'; el.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)'; el.style.transform = ''; })); });
 }
 // ---------- animaciones ----------
 const PREV = {};
@@ -232,7 +235,7 @@ function vHoy(T) {
       ${sug.bankEgg?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Huevos: ${lab(sug.bankEgg)} · ${r0(sug.bankEgg.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="egg">Aceptar</button></div>` : ''}
       ${sug.bankPb?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Cacahuete en polvo: ${lab(sug.bankPb)} · ${r0(sug.bankPb.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="pb">Aceptar</button></div>` : ''}
       <div class="sub" style="margin-top:6px">Caduca el domingo.</div></div>`; }
-    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa solo.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida ves cuánto podrías bajar el carbo.' : ''}</div>`;
+    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa solo.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida pendiente ves cuánto podrías bajar el carbo.' : ''}</div>`;
   }
   // comidas
   h += `<h2>Comidas</h2>`;
@@ -240,13 +243,15 @@ function vHoy(T) {
   const hintTxt = x => x.dq > 0 ? `↑ +${E.round(x.dq)}${x.unit === 'u' ? '' : ' g'} para llegar a la meta (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `↓ −${E.round(-x.dq)}${x.unit === 'u' ? '' : ' g'} para no pasarte (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? 'ya al máximo' : x.atLimit === 'min' ? 'ya al mínimo' : '';
   const hintFor = (m, foodId) => { if (!hint || hint.mealId !== m.id) return ''; const x = hint.items.find(y => y.foodId === foodId); const t = x && hintTxt(x); return t ? `<div class="chint">${t}</div>` : ''; };
   const hintRest = () => Math.abs(hint.remaining) > 50 ? `<div class="chint">${hint.dir > 0 ? `Quedan ${r0(hint.remaining)} kcal que el carbo no cubre.` : `Quedan ${r0(-hint.remaining)} kcal sobre la meta que el carbo no compensa.`}</div>` : '';
-  for (const m of dv.meals) {
+  // Marcadas arriba, en el orden en que se marcaron; pendientes abajo, en el orden del plan.
+  const ordered = [...dv.meals.filter(m => m.markedOrd != null).sort((a, b) => a.markedOrd - b.markedOrd), ...dv.meals.filter(m => m.markedOrd == null)];
+  for (const m of ordered) {
     const off = !['confirmed', 'edited', 'replaced'].includes(m.status);
     const tag = { pending: '<span class="tag">por comer</span>', assumed: '<span class="tag w">asumida</span>', confirmed: '<span class="tag ok">confirmada</span>', edited: '<span class="tag ok">editada</span>', skipped: '<span class="tag">omitida</span>', unknown: '<span class="tag">sin dato</span>', replaced: '<span class="tag ok">cambiada</span>' }[m.status] || '';
     const open = UI.open[d + m.id];
     const mt = (E.versionAt(S, d).meals.find(x => x.id === m.id) || {}).time || MEAL_TIME[m.id];
     const cdn = d === T && m.status === 'pending' ? countdown(mt) : '';
-    h += `<div class="card"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
+    h += `<div class="card" data-meal="${m.id}"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
       ${hint && hint.mealId === m.id
         ? `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `<div>${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}</div>${it.role === 'carb' ? hintFor(m, it.foodId) : ''}`).join('')}${hintRest()}</div>`
