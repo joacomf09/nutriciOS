@@ -17,7 +17,7 @@ export const DEFAULT_FOODS = {
   huevo:    { name: 'Huevo entero', per100: { kcal: 143, p: 12.6, c: 0.7, f: 9.5 }, unitG: 55, unitName: 'huevo', src: 'USDA' },
   pollo:    { name: 'Pechuga de pollo, cruda', per100: { kcal: 120, p: 22.5, c: 0, f: 2.6 }, src: 'USDA' },
   arroz:    { name: 'Arroz blanco, crudo', per100: { kcal: 360, p: 7, c: 79, f: 0.6 }, src: 'USDA' },
-  lentejas: { name: 'Lentejas cocidas (listas)', per100: { kcal: 116, p: 9, c: 20, f: 0.4 }, src: 'USDA' },
+  lentejas: { name: 'Lentejas Hacendado (frasco, escurridas)', per100: { kcal: 89, p: 8.2, c: 10.7, f: 0.4 }, src: 'etiqueta' },
   aceite:   { name: 'Aceite de oliva', per100: { kcal: 884, p: 0, c: 0, f: 100 }, src: 'USDA' },
   avena:    { name: 'Avena', per100: { kcal: 379, p: 13, c: 66, f: 6.5 }, src: 'USDA' },
   banana:   { name: 'Banana', per100: { kcal: 89, p: 1.1, c: 23, f: 0.3 }, unitG: 120, unitName: 'banana', src: 'USDA' },
