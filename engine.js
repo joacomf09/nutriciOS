@@ -224,6 +224,9 @@ export function redistributionSuggestion(state, date, today) {
     const b = r.remaining > 60 ? boost(state.foods, future, r.remaining) : { changes: [] };
     out.bankAllowance = round(allow);
     out.bankChanges = [...r.changes, ...b.changes].map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
+    const eggMeals = future.map(m => ({ id: m.id, items: m.items.filter(it => it.foodId === 'huevo').map(it => ({ ...it, max: Math.max(it.max ?? it.qty, it.qty + 2) })) }));
+    const eg = distribute(state.foods, eggMeals, allow, ['nego']);
+    out.bankEgg = eg.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'u' }).kcal) }));
     const pb = boost(state.foods, future, allow);
     out.bankPb = pb.changes.map(c => ({ ...c, kcal: round(itemMacros(state.foods, { foodId: c.foodId, qty: c.qty - c.from, unit: 'g' }).kcal) }));
   }

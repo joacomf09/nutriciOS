@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.5';
+export const APP_VERSION = '1.5.6';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false };
 async function checkUpdate(manual = false) {
@@ -176,9 +176,10 @@ function vHoy(T) {
   if (d === T && !dv.close) {
     if (sug.sameDay.length) h += `<div class="card hi"><div><b>${r0(sug.delta)} kcal por colocar</b> → ${sug.sameDay.map(c => `+${E.round(c.qty - c.from)} g ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ')}${sug.unplaced > 50 ? `. Quedan ${r0(sug.unplaced)} kcal al saldo semanal.` : ''}</div>
       <div class="row" style="margin-top:8px"><button class="p s" data-a="acceptRedist">Aceptar</button><button class="s" data-a="ignore">Ignorar</button></div></div>`;
-    else if (sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length)) { const lab = cs => cs.map(c => `+${E.round(c.qty - c.from)} g ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ');
+    else if (sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length || sug.bankEgg?.length)) { const lab = cs => cs.map(c => `+${E.round(c.qty - c.from)}${c.foodId === 'huevo' ? '' : ' g'} ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ');
       h += `<div class="card hi"><div>Saldo semanal: te faltaron calorías en días anteriores. Hoy podés sumar hasta <b>${r0(sug.bankAllowance)} kcal</b>. Elegí cómo:</div>
       ${sug.bankChanges?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Carbos: ${lab(sug.bankChanges)}</span><button class="p s" data-a="acceptBank" data-o="carb">Aceptar</button></div>` : ''}
+      ${sug.bankEgg?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Huevos: ${lab(sug.bankEgg)} · ${r0(sug.bankEgg.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="egg">Aceptar</button></div>` : ''}
       ${sug.bankPb?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Cacahuete en polvo: ${lab(sug.bankPb)} · ${r0(sug.bankPb.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="pb">Aceptar</button></div>` : ''}
       <div class="sub" style="margin-top:6px">Caduca el domingo.</div></div>`; }
     if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa.</div>`;
@@ -441,7 +442,7 @@ document.addEventListener('click', async e => {
     case 'skipMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); break;
     case 'resetMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_RESET', { date: d, mealId: el.dataset.m }); break;
     case 'acceptRedist': { const s = E.redistributionSuggestion(S, d, T); await emitMany(s.sameDay.map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: false }])); toast('Redistribución aplicada'); break; }
-    case 'acceptBank': { const s = E.redistributionSuggestion(S, d, T); await emitMany((el.dataset.o === 'pb' ? s.bankPb : s.bankChanges).map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true }])); toast('Saldo aplicado'); break; }
+    case 'acceptBank': { const s = E.redistributionSuggestion(S, d, T); await emitMany(({ pb: s.bankPb, egg: s.bankEgg }[el.dataset.o] || s.bankChanges).map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true }])); toast('Saldo aplicado'); break; }
     case 'ignore': el.closest('.card').remove(); break;
     case 'quick': await emit('EXTRA', { date: d, id: uid(), name: `Extra rápido +${el.dataset.k}`, kcal: +el.dataset.k, p: +el.dataset.k * 0.15 / 4, c: +el.dataset.k * 0.45 / 4, f: +el.dataset.k * 0.4 / 9, estimated: true }); break;
     case 'custom': $('#customx').classList.toggle('hidden'); break;
