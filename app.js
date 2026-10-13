@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.16';
+export const APP_VERSION = '1.5.17';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -187,6 +187,31 @@ function goalBanner(T, E_, TG) {
     </div><div style="text-align:center">${sil}<div class="cond" style="font-size:15px;font-weight:700"><span data-count="${Math.round(f * 100)}" data-ck="silp">${Math.round(f * 100)}</span> %</div></div></div></div>`;
 }
 
+// ---------- pista de carbos: bloque (Modificar, en vivo) ----------
+const fname = id => esc(S.foods[id]?.name.split(',')[0].toLowerCase() || id);
+function hintBlock(h) {
+  if (!h) return '';
+  const u = x => x.unit === 'u' ? '' : ' g';
+  const lines = h.adds
+    ? h.items.map(x => `＋ añadir ${E.round(x.dq)} g ${fname(x.foodId)} (+${r0(x.kcal)} kcal)`)
+    : h.items.map(x => x.dq > 0 ? `${fname(x.foodId)}: ↑ +${E.round(x.dq)}${u(x)} (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `${fname(x.foodId)}: ↓ −${E.round(-x.dq)}${u(x)} (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? `${fname(x.foodId)}: ya al máximo` : x.atLimit === 'min' ? `${fname(x.foodId)}: ya al mínimo` : '').filter(Boolean);
+  if (Math.abs(h.remaining) > 50) lines.push(h.dir > 0 ? `Quedan ${r0(h.remaining)} kcal sin cubrir.` : `Quedan ${r0(-h.remaining)} kcal sobre la meta.`);
+  return lines.length ? `<div class="chint">${h.dir > 0 ? 'Para llegar a la meta:' : 'Para no pasarte:'}</div>` + lines.map(l => `<div class="chint">${l}</div>`).join('') : '';
+}
+function panelItems(card, m) {
+  const items = m.actualItems.map(it => ({ ...it }));
+  card.querySelectorAll('[data-f]').forEach(inp => { const i = +inp.dataset.i; if (!items[i]) return; if (inp.dataset.f === 'qty') items[i].qty = parseFloat(String(inp.value).replace(',', '.')) || 0; else items[i].foodId = inp.value; });
+  card.querySelectorAll('.swipe.gone').forEach(r => { if (items[+r.dataset.i]) items[+r.dataset.i].qty = 0; });
+  return items;
+}
+function liveHint(card) {
+  const box = card?.querySelector('.livehint'); if (!box) return;
+  const T = todayStr(), d = UI.day, m = E.dayView(S, d, T).meals.find(x => x.id === card.dataset.meal); if (!m) return;
+  const h = E.lastMealCarbHint(S, d, T, { asPending: m.id, items: panelItems(card, m) });
+  box.innerHTML = h && h.mealId === m.id ? hintBlock(h) : '';
+}
+document.addEventListener('input', e => { if (e.target.matches('.items [data-f]')) liveHint(e.target.closest('[data-meal]')); });
+
 // ---------- HOY ----------
 function pendingCloses(T) {
   const out = []; for (let i = 1; i <= 7; i++) { const d = E.addDays(T, -i); if (d < S.settings.startDate) break; if (!S.closes[d]) out.push(d); }
@@ -257,7 +282,7 @@ function vHoy(T) {
     const cdn = d === T && m.status === 'pending' ? countdown(mt) : '';
     h += `<div class="card" data-meal="${m.id}"><div class="meal"><div class="chk ${off ? 'off' : ''}" data-a="toggle" data-m="${m.id}">${off ? '' : '✓'}</div>
       <div class="grow"><div class="row sp"><h3>${esc(m.name)}</h3><span class="num sub">${r0(off ? m.plannedTot.kcal : m.actualTot.kcal)} kcal</span></div>
-      ${hint && hint.mealId === m.id
+      ${hint && hint.mealId === m.id && !open
         ? `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `<div>${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}</div>${it.role === 'carb' ? hintFor(m, it.foodId) : ''}`).join('')}${hintRest()}</div>`
         : `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div>`}<div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
@@ -267,9 +292,8 @@ function vHoy(T) {
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 6 : 5);
         h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
-        if (it.role === 'carb') h += hintFor(m, it.foodId);
       });
-      if (hint?.adds && hint.mealId === m.id) h += `<div style="text-align:right">${addLines()}</div>`;
+      { const lh = d <= T && !dv.close ? E.lastMealCarbHint(S, d, T, { asPending: m.id }) : null; h += `<div class="livehint" style="text-align:right;margin:4px 0 8px">${lh && lh.mealId === m.id ? hintBlock(lh) : ''}</div>`; }
       h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
         <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${foodUnit(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
@@ -496,7 +520,7 @@ document.addEventListener('click', async e => {
       const zero = items.find(i => i.foodId === fid && i.qty === 0);   // opción en 0 del plan (p. ej. natilla): se completa en vez de duplicar
       if (zero) zero.qty = q; else items.push({ foodId: fid, qty: q, unit: isU ? 'u' : 'g', role: 'extra' });
       await emit('MEAL_SET', { date: d, mealId: mid, status: 'edited', items }); UI.open[d + mid] = true; render(); toast('Añadido'); break; }
-    case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(inp.value) || 0) + parseFloat(el.dataset.s), 2)); break; }
+    case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(String(inp.value).replace(',', '.')) || 0) + parseFloat(el.dataset.s), 2)); liveHint(el.closest('[data-meal]')); break; }
     case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
     case 'saveMeal': {
       const m = dv().meals.find(x => x.id === el.dataset.m); const card = el.closest('.card');
@@ -621,7 +645,7 @@ document.addEventListener('touchmove', e => { if (!SW) return; const t = e.touch
   if (SW.lock === null && Math.abs(dx) + Math.abs(dy) > 8) SW.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
   if (SW.lock !== 'x') return; SW.dx = Math.min(0, dx); SW.r.style.transition = 'none'; SW.r.style.transform = `translateX(${SW.dx}px)`; SW.r.style.opacity = String(1 + SW.dx / 300); }, { passive: true });
 document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } = SW; SW = null; r.style.transition = 'transform .25s, opacity .25s';
-  if (dx < -90) { r.style.transform = 'translateX(-110%)'; r.style.opacity = '0'; setTimeout(() => { r.classList.add('gone'); r.style.display = 'none'; }, 250); toast('Ingrediente quitado · tocá Guardar'); }
+  if (dx < -90) { r.style.transform = 'translateX(-110%)'; r.style.opacity = '0'; setTimeout(() => { r.classList.add('gone'); r.style.display = 'none'; liveHint(r.closest('[data-meal]')); }, 250); toast('Ingrediente quitado · tocá Guardar'); }
   else { r.style.transform = ''; r.style.opacity = ''; } });
 
 // ---------- arranque ----------

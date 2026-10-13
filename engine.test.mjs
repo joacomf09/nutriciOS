@@ -196,4 +196,12 @@ t('pista asPending: post-gym ya editado con 40 g de avena → sigue sugiriendo e
   assert.ok(!h2 || !h2.items.some(x => x.foodId === 'pb2'), 'no vuelve a sugerir cacahuete si ya hay 30 g (tope 36)');
   assert.ok(Math.abs((plain.delta - h.delta) - E.itemMacros(E.DEFAULT_FOODS, { foodId: 'avena', qty: 40, unit: 'g' }).kcal) < 2);
 });
+t('pista en vivo: post-gym pendiente con 2 scoops y sin banana (opts.items) recalcula sin grabar', () => {
+  const ev = conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'merienda', status: 'skipped' } }]);
+  const s = E.replay(ev); const base = E.lastMealCarbHint(s, D, D);
+  const live = E.lastMealCarbHint(s, D, D, { asPending: 'post', items: [{ foodId: 'whey', qty: 2, unit: 'u', role: 'nego' }, { foodId: 'banana', qty: 0, unit: 'u', role: 'fixed' }] });
+  const dWhey = E.itemMacros(E.DEFAULT_FOODS, { foodId: 'whey', qty: 1, unit: 'u' }).kcal, dBan = E.itemMacros(E.DEFAULT_FOODS, { foodId: 'banana', qty: 1, unit: 'u' }).kcal;
+  assert.ok(Math.abs((base.delta - live.delta) - (dWhey - dBan)) < 2, `${base.delta} → ${live.delta}`);
+  assert.equal(E.dayView(s, D, D).meals.find(m => m.id === 'post').status, 'pending');
+});
 console.log(`\n${n} pruebas OK`);

@@ -27,6 +27,7 @@ export const DEFAULT_FOODS = {
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
+  kiwi:     { name: 'Kiwi', per100: { kcal: 61, p: 1.1, c: 14.7, f: 0.5 }, unitG: 75, unitName: 'kiwi', src: 'USDA (genérico, 1 kiwi ≈ 75 g sin piel)' },
   guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
   natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
   tomate:   { name: 'Salsa de tomate (promedio Hacendado frito + Solís sofrito)', per100: { kcal: 92, p: 1.15, c: 10.8, f: 4.65 }, src: 'etiqueta (promedio)' },
@@ -246,9 +247,9 @@ export function lastMealCarbHint(state, date, today, opts = {}) {
   let dv = dv0;
   if (opts.asPending) {
     const m0 = dv0.meals.find(m => m.id === opts.asPending);
-    if (m0 && m0.status !== 'pending') {
+    if (m0 && (m0.status !== 'pending' || opts.items)) {
       const wasEaten = ['confirmed', 'edited', 'replaced'].includes(m0.status);
-      const items = m0.actualItems.filter(it => it.qty > 0);
+      const items = (opts.items || m0.actualItems).filter(it => it.qty > 0);
       const meals = dv0.meals.map(m => m.id !== m0.id ? m : { ...m, status: 'pending', planned: items, plannedTot: sumItems(state.foods, items) });
       const ec = wasEaten ? { kcal: dv0.eatenConfirmed.kcal - m0.actualTot.kcal } : { kcal: dv0.eatenConfirmed.kcal };
       dv = { ...dv0, meals, eatenConfirmed: ec };
