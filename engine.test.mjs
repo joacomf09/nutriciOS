@@ -183,4 +183,17 @@ t('orden de marcado: markedOrd sigue el orden en que se marcan y no cambia al ed
   const dv = E.dayView(s, D, D); const o = id => dv.meals.find(m => m.id === id).markedOrd;
   assert.ok(o('cena') < o('desayuno')); assert.equal(o('almuerzo'), null);
 });
+t('pista asPending: post-gym ya editado con 40 g de avena → sigue sugiriendo el resto (cacahuete)', () => {
+  const post = [{ foodId: 'whey', qty: 1, unit: 'u', role: 'nego' }, { foodId: 'banana', qty: 1, unit: 'u', role: 'fixed' }, { foodId: 'avena', qty: 40, unit: 'g', role: 'extra' }];
+  const ev = conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'merienda', status: 'skipped' } }, { type: 'MEAL_SET', payload: { date: D, mealId: 'post', status: 'edited', items: post } }]);
+  const s = E.replay(ev);
+  assert.equal(E.lastMealCarbHint(s, D, D), null); // sin opción: no hay pendientes
+  const h = E.lastMealCarbHint(s, D, D, { asPending: 'post' });
+  assert.equal(h.mealId, 'post'); assert.ok(h.adds); assert.equal(h.items[0].foodId, 'pb2');
+  const plain = E.lastMealCarbHint(E.replay(conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'merienda', status: 'skipped' } }])), D, D);
+  const post2 = [...post, { foodId: 'pb2', qty: 30, unit: 'g', role: 'extra' }];
+  const h2 = E.lastMealCarbHint(E.replay([...ev, { type: 'MEAL_SET', payload: { date: D, mealId: 'post', status: 'edited', items: post2 } }]), D, D, { asPending: 'post' });
+  assert.ok(!h2 || !h2.items.some(x => x.foodId === 'pb2'), 'no vuelve a sugerir cacahuete si ya hay 30 g (tope 36)');
+  assert.ok(Math.abs((plain.delta - h.delta) - E.itemMacros(E.DEFAULT_FOODS, { foodId: 'avena', qty: 40, unit: 'g' }).kcal) < 2);
+});
 console.log(`\n${n} pruebas OK`);

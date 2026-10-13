@@ -240,8 +240,20 @@ export function redistributionSuggestion(state, date, today) {
 
 // Pista de carbos en la última comida PENDIENTE con carbos (solo se muestra; no emite eventos).
 // Cuenta: lo ya marcado del día (+ extras) + lo planificado de TODAS las comidas pendientes, contra la meta.
-export function lastMealCarbHint(state, date, today) {
-  const P = state.settings.params; const dv = dayView(state, date, today);
+export function lastMealCarbHint(state, date, today, opts = {}) {
+  const P = state.settings.params; const dv0 = dayView(state, date, today);
+  // opts.asPending: tratar una comida ya marcada como pendiente con lo que tiene hoy (sigue la pista mientras se arma).
+  let dv = dv0;
+  if (opts.asPending) {
+    const m0 = dv0.meals.find(m => m.id === opts.asPending);
+    if (m0 && m0.status !== 'pending') {
+      const wasEaten = ['confirmed', 'edited', 'replaced'].includes(m0.status);
+      const items = m0.actualItems.filter(it => it.qty > 0);
+      const meals = dv0.meals.map(m => m.id !== m0.id ? m : { ...m, status: 'pending', planned: items, plannedTot: sumItems(state.foods, items) });
+      const ec = wasEaten ? { kcal: dv0.eatenConfirmed.kcal - m0.actualTot.kcal } : { kcal: dv0.eatenConfirmed.kcal };
+      dv = { ...dv0, meals, eatenConfirmed: ec };
+    }
+  }
   // Última comida PENDIENTE (en orden del plan) que tenga carbos; las demás pendientes cuentan con lo planificado.
   const pending = dv.meals.filter(m => m.status === 'pending');
   const withCarbs = pending.filter(m => m.planned.some(it => it.role === 'carb' && it.qty > 0));
@@ -256,8 +268,9 @@ export function lastMealCarbHint(state, date, today) {
     last = pending[pending.length - 1];
     const add = [], kc = (foodId, qty) => itemMacros(state.foods, { foodId, qty, unit: 'g' }).kcal;
     let rem = delta;
-    if (state.foods.pb2) { const per = kc('pb2', 12); const n = Math.min(3, Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'pb2', unit: 'g', from: 0, qty: 12 * n, dq: 12 * n, kcal: round(kc('pb2', 12 * n)), add: true, atLimit: null }); rem -= kc('pb2', 12 * n); } }
-    if (state.foods.avena && rem > P.redistTol) { const per = kc('avena', 5); const n = Math.min(24, Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'avena', unit: 'g', from: 0, qty: 5 * n, dq: 5 * n, kcal: round(kc('avena', 5 * n)), add: true, atLimit: null }); rem -= kc('avena', 5 * n); } }
+    const has = id => last.planned.filter(it => it.foodId === id).reduce((a, it) => a + (it.unit === 'u' ? it.qty * (state.foods[id]?.unitG || 0) : it.qty), 0);
+    if (state.foods.pb2) { const per = kc('pb2', 12); const n = Math.min(Math.floor(Math.max(0, 36 - has('pb2')) / 12), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'pb2', unit: 'g', from: 0, qty: 12 * n, dq: 12 * n, kcal: round(kc('pb2', 12 * n)), add: true, atLimit: null }); rem -= kc('pb2', 12 * n); } }
+    if (state.foods.avena && rem > P.redistTol) { const per = kc('avena', 5); const n = Math.min(Math.floor(Math.max(0, 120 - has('avena')) / 5), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'avena', unit: 'g', from: 0, qty: 5 * n, dq: 5 * n, kcal: round(kc('avena', 5 * n)), add: true, atLimit: null }); rem -= kc('avena', 5 * n); } }
     if (!add.length) return null;
     const covered = add.reduce((a, x) => a + x.kcal, 0);
     return { mealId: last.id, delta, dir: 1, projected: round(projected), target: round(dv.target.kcal), items: add, adds: true, covered: round(covered), remaining: round(delta - covered) };

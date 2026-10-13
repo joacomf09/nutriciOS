@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.15';
+export const APP_VERSION = '1.5.16';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -110,7 +110,7 @@ const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const MON = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const dLabel = s => { const d = E.toDate(s); return `${DOW[(d.getUTCDay() + 6) % 7]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
-const foodUnit = id => S.foods[id]?.unitG ? (S.foods[id].unitName || 'u') : 'g';
+const foodUnit = id => id !== 'pb2' && S.foods[id]?.unitG ? (S.foods[id].unitName || 'u') : 'g';
 const qtyLabel = it => it.unit === 'u' ? `${it.qty}×` : `${it.qty} g`;
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 function download(name, text, mime = 'text/plain') {
@@ -239,7 +239,10 @@ function vHoy(T) {
   }
   // comidas
   h += `<h2>Comidas</h2>`;
-  const hint = E.lastMealCarbHint(S, d, T);
+  // Si la última comida marcada tiene el panel Modificar abierto, la pista la sigue tratando como pendiente
+  // (así no desaparece al añadir un ingrediente).
+  const lastMarked = dv.meals.filter(m => m.markedOrd != null && m.status !== 'skipped').sort((a, b) => b.markedOrd - a.markedOrd)[0];
+  const hint = E.lastMealCarbHint(S, d, T, lastMarked && !dv.close && (UI.open[d + lastMarked.id] || (['edited', 'replaced'].includes(lastMarked.status) && !dv.meals.some(m => m.status === 'pending'))) && !dv.meals.some(m => m.status === 'pending' && m.planned.some(it => it.role === 'carb' && it.qty > 0)) ? { asPending: lastMarked.id } : {}) || null;
   const hintTxt = x => x.dq > 0 ? `↑ +${E.round(x.dq)}${x.unit === 'u' ? '' : ' g'} para llegar a la meta (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `↓ −${E.round(-x.dq)}${x.unit === 'u' ? '' : ' g'} para no pasarte (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? 'ya al máximo' : x.atLimit === 'min' ? 'ya al mínimo' : '';
   const addLines = () => hint?.adds ? hint.items.map(x => `<div class="chint">＋ añadir ${E.round(x.dq)} g ${esc(S.foods[x.foodId].name.split(',')[0].toLowerCase())} para llegar a la meta (+${r0(x.kcal)} kcal)</div>`).join('') : '';
   const hintFor = (m, foodId) => { if (!hint || hint.mealId !== m.id || hint.adds) return ''; const x = hint.items.find(y => y.foodId === foodId); const t = x && hintTxt(x); return t ? `<div class="chint">${t}</div>` : ''; };
@@ -262,7 +265,7 @@ function vHoy(T) {
       m.actualItems.forEach((it, i) => {
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
-        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 12 : 5);
+        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 6 : 5);
         h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
         if (it.role === 'carb') h += hintFor(m, it.foodId);
       });
