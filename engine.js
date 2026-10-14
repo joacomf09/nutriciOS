@@ -13,7 +13,7 @@ export const range = (a, n) => Array.from({ length: n }, (_, i) => addDays(a, i)
 // ---------- catálogo y plantilla por defecto ----------
 // Valores por 100 g (tablas USDA/BEDCA redondeadas; editables en la app).
 export const DEFAULT_FOODS = {
-  pan:      { name: 'Pan (rebanada)', per100: { kcal: 265, p: 9, c: 49, f: 3.5 }, unitG: 35, unitName: 'pan', src: 'tabla' },
+  pan:      { name: 'Pan integral Hacendado (rebanada chica)', per100: { kcal: 249, p: 11.3, c: 36, f: 4.8 }, unitG: 30, unitName: 'pan', src: 'etiqueta' },
   huevo:    { name: 'Huevo entero', per100: { kcal: 143, p: 12.6, c: 0.7, f: 9.5 }, unitG: 55, unitName: 'huevo', src: 'USDA' },
   pollo:    { name: 'Pechuga de pollo, cruda', per100: { kcal: 120, p: 22.5, c: 0, f: 2.6 }, src: 'USDA' },
   arroz:    { name: 'Arroz blanco, crudo', per100: { kcal: 360, p: 7, c: 79, f: 0.6 }, src: 'USDA' },

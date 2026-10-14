@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.20';
+export const APP_VERSION = '1.5.21';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -672,7 +672,7 @@ document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } =
 // ---------- arranque ----------
 async function migrate() {
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
-  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
+  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));
   // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
   const T = todayStr();
