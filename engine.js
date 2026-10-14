@@ -36,6 +36,7 @@ export const DEFAULT_FOODS = {
   pina:     { name: 'Piña natural a rodajas Mercadona', per100: { kcal: 58, p: 0.5, c: 14, f: 0 }, src: 'etiqueta' },
   limonada: { name: 'Limonada light Don Simón (en ml)', per100: { kcal: 23, p: 0.1, c: 5.6, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   naranjab: { name: 'Bebida de naranja sin azúcares añadidos Mercadona (en ml)', per100: { kcal: 22, p: 0.3, c: 5, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
+  icetea:   { name: 'Ice Tea Zero limón Hacendado (en ml)', per100: { kcal: 2.9, p: 0, c: 0.1, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
