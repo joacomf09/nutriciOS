@@ -33,6 +33,9 @@ export const DEFAULT_FOODS = {
   natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
   tomate:   { name: 'Salsa de tomate (promedio Hacendado frito + Solís sofrito)', per100: { kcal: 92, p: 1.15, c: 10.8, f: 4.65 }, src: 'etiqueta (promedio)' },
   grana:    { name: 'Queso rallado Grana Padano Hacendado', per100: { kcal: 398, p: 33, c: 0, f: 29 }, src: 'etiqueta' },
+  pina:     { name: 'Piña natural a rodajas Mercadona', per100: { kcal: 58, p: 0.5, c: 14, f: 0 }, src: 'etiqueta' },
+  limonada: { name: 'Limonada light Don Simón (en ml)', per100: { kcal: 23, p: 0.1, c: 5.6, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
+  naranjab: { name: 'Bebida de naranja sin azúcares añadidos Mercadona (en ml)', per100: { kcal: 22, p: 0.3, c: 5, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
