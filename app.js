@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.23';
+export const APP_VERSION = '1.5.24';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -111,7 +111,9 @@ const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const MON = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const dLabel = s => { const d = E.toDate(s); return `${DOW[(d.getUTCDay() + 6) % 7]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
 const foodUnit = id => id !== 'pb2' && S.foods[id]?.unitG ? (S.foods[id].unitName || 'u') : 'g';
-const qtyLabel = it => it.unit === 'u' ? `${it.qty}×` : `${it.qty} g`;
+const unitLbl = id => ML.includes(id) ? 'ml' : foodUnit(id);
+const ML = ['icetea', 'limonada', 'naranjab']; // bebidas: se anotan en ml (1 ml ≈ 1 g) y el stepper va de a 50
+const qtyLabel = it => it.unit === 'u' ? `${it.qty}×` : `${it.qty} ${ML.includes(it.foodId) ? 'ml' : 'g'}`;
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 function download(name, text, mime = 'text/plain') {
   const blob = new Blob([text], { type: mime });
@@ -310,12 +312,12 @@ function vHoy(T) {
       m.actualItems.forEach((it, i) => {
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
-        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (it.foodId === 'pb2' ? 6 : 5);
+        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (ML.includes(it.foodId) ? 50 : it.foodId === 'pb2' ? 6 : 5);
         h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
       });
       { const lh = d <= T && !dv.close ? E.lastMealCarbHint(S, d, T, { asPending: m.id }) : null; h += `<div class="livehint" style="text-align:right;margin:4px 0 8px">${lh && lh.mealId === m.id ? hintBlock(lh) : ''}</div>`; }
       h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
-        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${foodUnit(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
+        <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${unitLbl(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
     h += `</div>`;
@@ -637,7 +639,7 @@ function confirmWipe() { if (Date.now() - wipeArmed < 4000) return true; wipeArm
 function backup() { download(`nutricios-respaldo-${todayStr()}.json`, JSON.stringify({ app: 'nutricios', schema: 1, calc: E.CALC_VERSION, exported: new Date().toISOString(), events: EVENTS }), 'application/json'); }
 
 document.addEventListener('change', async e => {
-  if (e.target.id?.startsWith('addf-')) { const q = $('#addq-' + e.target.id.slice(5)); if (q) q.placeholder = foodUnit(e.target.value); return; }
+  if (e.target.id?.startsWith('addf-')) { const q = $('#addq-' + e.target.id.slice(5)); if (q) q.placeholder = unitLbl(e.target.value); return; }
   if (e.target.id === 'imp') {
     const f = e.target.files[0]; if (!f) return;
     try { const j = JSON.parse(await f.text()); if (j.app !== 'nutricios' || !Array.isArray(j.events)) throw 0;
