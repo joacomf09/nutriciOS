@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.19';
+export const APP_VERSION = '1.5.20';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -147,6 +147,26 @@ function animate() {
     const step = t => { const x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3); el.textContent = r0(from + (to - from) * e); if (x < 1) requestAnimationFrame(step); };
     el.textContent = r0(from); requestAnimationFrame(step);
   });
+}
+// Pop-up de cierre del día: anillos + sello CUMPLIDO (98–105 % de la meta) + comidas con check.
+function closeSummary(date) {
+  document.getElementById('closesum')?.remove();
+  const T = todayStr(), v = E.dayView(S, date, T), a = v.actual, tg = v.target, pct = a.kcal / tg.kcal;
+  const ok = pct >= 0.98 && pct <= 1.05, diff = E.round(a.kcal - tg.kcal);
+  const ring = (r, f, col, dl) => { const C = 2 * Math.PI * r; return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-opacity=".16" stroke-width="9"/><circle class="csr" cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" transform="rotate(-90 70 70)" style="--C:${C.toFixed(1)};--o:${(C * (1 - Math.min(1, f || 0))).toFixed(1)};animation-delay:${dl}s"/>`; };
+  const meals = v.meals.map(m => { const eaten = ['confirmed', 'edited', 'replaced'].includes(m.status), extra = m.actualItems.some(it => it.role === 'extra' && it.qty > 0);
+    return `<div class="${eaten ? '' : 'sk'}"><span class="ck ${eaten ? '' : 'x'}">${eaten ? '✓' : '–'}</span>${esc(m.name.replace(/ \(.*\)/, ''))}${!eaten ? ' <em>omitida</em>' : extra ? ' <em>+ añadido</em>' : ''}<b class="num">${r0(eaten ? m.actualTot.kcal : 0)}</b></div>`; }).join('');
+  const title = ok ? '¡Felicidades!<br>Cumpliste tu día' : diff < 0 ? 'Día cerrado' : 'Día cerrado';
+  const sub = ok ? '' : diff < 0 ? `<div class="sub">Te faltaron <b>${r0(-diff)} kcal</b>. Hasta +300 por día pasan al saldo de la semana.</div>` : `<div class="sub">Te pasaste <b>${r0(diff)} kcal</b>. Solo informativo.</div>`;
+  const d = document.createElement('div'); d.id = 'closesum'; d.className = 'modal';
+  d.innerHTML = `<div class="mbox cs"><div class="eyebrow">Día cerrado · ${dLabel(date)}</div>
+    <div class="csring"><svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="Anillos del día">${ring(62, a.kcal / tg.kcal, 'var(--acc)', 0)}${ring(50, a.p / tg.p, 'var(--p)', .15)}${ring(38, a.c / tg.c, 'var(--c)', .3)}${ring(26, a.f / tg.f, 'var(--f)', .45)}</svg>${ok ? '<div class="gstamp">CUMPLIDO</div>' : ''}</div>
+    <p class="cst">${title}</p>${sub}
+    <div class="sub"><span class="num" style="font-size:20px;color:var(--ink)">${r0(a.kcal)}</span> / ${r0(tg.kcal)} kcal · ${(pct * 100).toFixed(1).replace('.', ',')} %</div>
+    <div class="csm"><div><b style="color:var(--p)">${r0(a.p)}</b><span>/${r0(tg.p)} prot</span></div><div><b style="color:var(--c)">${r0(a.c)}</b><span>/${r0(tg.c)} carb</span></div><div><b style="color:var(--f)">${r0(a.f)}</b><span>/${r0(tg.f)} grasa</span></div></div>
+    <div class="mlist">${meals}</div>
+    <button class="p" style="width:100%" data-a="closesum">Listo</button></div>`;
+  document.body.appendChild(d); if (ok) burst();
 }
 function burst() {
   const b = document.createElement('div'); b.className = 'burst';
@@ -505,7 +525,8 @@ document.addEventListener('click', async e => {
       const cd = el.dataset.d, ans = el.dataset.v;
       if (el.dataset.manual) { const v = E.dayView(S, cd, T); const list = v.meals.filter(m => ['pending', 'assumed'].includes(m.status)).map(m => ['MEAL_SET', { date: cd, mealId: m.id, status: 'skipped' }]); list.push(['DAY_CLOSE', { date: cd, answer: 'with_changes' }]); await emitMany(list); }
       else await emit('DAY_CLOSE', { date: cd, answer: ans });
-      burst(); break; }
+      if (el.dataset.manual) closeSummary(cd); else burst(); break; }
+    case 'closesum': document.getElementById('closesum')?.remove(); break;
     case 'reopen': await emit('DAY_CLOSE', { date: d, answer: null }); break;
     case 'addw': { const kg = parseKg($('#wkg').value); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast(`Peso guardado: ${kg} kg`); } else toast('Peso no válido');  break; }
     case 'toggle': {
