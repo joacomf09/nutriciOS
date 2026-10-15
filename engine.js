@@ -22,6 +22,8 @@ export const DEFAULT_FOODS = {
   avena:    { name: 'Avena', per100: { kcal: 379, p: 13, c: 66, f: 6.5 }, src: 'USDA' },
   banana:   { name: 'Banana', per100: { kcal: 89, p: 1.1, c: 23, f: 0.3 }, unitG: 120, unitName: 'banana', src: 'USDA' },
   whey:     { name: 'Whey protein', per100: { kcal: 400, p: 80, c: 8, f: 6 }, unitG: 30, unitName: 'scoop', src: 'genérico — cargar etiqueta' },
+  caseina:  { name: 'Caseína Gold Standard 100% Casein (Optimum Nutrition)', per100: { kcal: 367, p: 72.7, c: 9.1, f: 3 }, unitG: 33, unitName: 'scoop', src: 'ON: 1 scoop (33 g) = 121 kcal, P 24, C 3, G 1 (redondeado; varía un poco por sabor)' },
+  wheyon:   { name: 'Whey Gold Standard 100% Whey (Optimum Nutrition)', per100: { kcal: 395, p: 78.9, c: 9.9, f: 3.3 }, unitG: 30.4, unitName: 'scoop', src: 'ON: 1 scoop (30,4 g) = 120 kcal, P 24, C 3, G 1 (redondeado; varía un poco por sabor)' },
   pasta:    { name: 'Pasta, cruda', per100: { kcal: 371, p: 13, c: 75, f: 1.5 }, src: 'USDA' },
   carne:    { name: 'Carne vacuna magra, cruda', per100: { kcal: 170, p: 20, c: 0, f: 10 }, src: 'USDA' },
   salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
