@@ -204,4 +204,12 @@ t('pista en vivo: post-gym pendiente con 2 scoops y sin banana (opts.items) reca
   assert.ok(Math.abs((base.delta - live.delta) - (dWhey - dBan)) < 2, `${base.delta} → ${live.delta}`);
   assert.equal(E.dayView(s, D, D).meals.find(m => m.id === 'post').status, 'pending');
 });
+t('saldo: tras aceptar +300 hoy no ofrece más ese día aunque quede saldo', () => {
+  const ev = [init(), ...['merienda', 'post', 'cena'].map(mealId => ({ type: 'MEAL_SET', payload: { date: '2026-10-13', mealId, status: 'skipped' } })), { type: 'DAY_CLOSE', payload: { date: '2026-10-13', answer: 'with_changes' } }];
+  const s = E.replay(ev); const r = E.redistributionSuggestion(s, '2026-10-14', '2026-10-14');
+  assert.equal(r.bankAllowance, 300);
+  const s2 = E.replay([...ev, ...r.bankChanges.map(c => ({ type: 'OVERRIDE', payload: { date: '2026-10-14', mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true } }))]);
+  const r2 = E.redistributionSuggestion(s2, '2026-10-14', '2026-10-14');
+  assert.ok(!r2.bankAllowance, `ofrece ${r2.bankAllowance}`); assert.ok(E.weekBank(s2, '2026-10-14', '2026-10-14') > 1000);
+});
 console.log(`\n${n} pruebas OK`);

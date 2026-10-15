@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.24';
+export const APP_VERSION = '1.5.25';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -276,12 +276,6 @@ function vHoy(T) {
   if (d === T && !dv.close) {
     if (sug.sameDay.length) h += `<div class="card hi"><div><b>${r0(sug.delta)} kcal por colocar</b> → ${sug.sameDay.map(c => `+${E.round(c.qty - c.from)} g ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ')}${sug.unplaced > 50 ? `. Quedan ${r0(sug.unplaced)} kcal al saldo semanal.` : ''}</div>
       <div class="row" style="margin-top:8px"><button class="p s" data-a="acceptRedist">Aceptar</button><button class="s" data-a="ignore">Ignorar</button></div></div>`;
-    else if (sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length || sug.bankEgg?.length)) { const lab = cs => cs.map(c => `+${E.round(c.qty - c.from)}${c.foodId === 'huevo' ? '' : ' g'} ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ');
-      h += `<div class="card hi"><div>Saldo semanal: te faltaron calorías en días anteriores. Hoy podés sumar hasta <b>${r0(sug.bankAllowance)} kcal</b>. Elegí cómo:</div>
-      ${sug.bankChanges?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Carbos: ${lab(sug.bankChanges)}</span><button class="p s" data-a="acceptBank" data-o="carb">Aceptar</button></div>` : ''}
-      ${sug.bankEgg?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Huevos: ${lab(sug.bankEgg)} · ${r0(sug.bankEgg.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="egg">Aceptar</button></div>` : ''}
-      ${sug.bankPb?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Cacahuete en polvo: ${lab(sug.bankPb)} · ${r0(sug.bankPb.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="pb">Aceptar</button></div>` : ''}
-      <div class="sub" style="margin-top:6px">Caduca el domingo.</div></div>`; }
     if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa solo.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida pendiente ves cuánto podrías bajar el carbo.' : ''}</div>`;
   }
   // comidas
@@ -326,6 +320,15 @@ function vHoy(T) {
   h += `<h2>Extras</h2><div class="card">${dv.extras.map(x => `<div class="row sp"><span>${esc(x.name)} ${x.estimated ? '<span class="tag">estimado</span>' : ''}</span><span class="num">${r0(x.kcal)} kcal <button class="s del" data-a="delx" data-x="${x.id}">✕</button></span></div>`).join('') || '<div class="sub">Comida fuera del plan.</div>'}
     <div class="row wrap" style="margin-top:8px"><button class="s" data-a="quick" data-k="200">+200</button><button class="s" data-a="quick" data-k="500">+500</button><button class="s" data-a="quick" data-k="1000">+1.000</button><button class="s" data-a="custom">Personalizado</button></div>
     <div id="customx" class="hidden"><label>Nombre</label><input id="xn" placeholder="Ej.: pizza"><div class="row"><div class="grow"><label>kcal</label><input id="xk" type="number"></div><div class="grow"><label>P</label><input id="xp" type="number"></div><div class="grow"><label>C</label><input id="xc" type="number"></div><div class="grow"><label>G</label><input id="xf" type="number"></div></div><button class="p s" style="margin-top:8px" data-a="addx">Añadir</button></div></div>`;
+  // Saldo semanal: tarjeta persistente al final del día (1.5.25)
+  if (d === T && !dv.close) { const remaining = E.weekBank(S, d, T), applied = (S.overrides[d] || []).filter(o => o.fromBank);
+    const hasOpt = sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length || sug.bankEgg?.length);
+    if (remaining > 50 || applied.length) { const lab = cs => cs.map(c => `+${E.round(c.qty - c.from)}${c.foodId === 'huevo' ? '' : ' g'} ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ');
+      h += `<div class="card hi" id="bankcard"><div>${remaining > 50 ? `Saldo semanal: te faltan <b>${r0(remaining)} kcal</b> de días anteriores.${sug.bankAllowance > 0 ? ` Hoy podés sumar hasta <b>${r0(sug.bankAllowance)} kcal</b>.` : ''}` : 'Saldo semanal al día.'}</div>${applied.length ? `<div class="sub" style="margin-top:6px">✓ Aplicado hoy: +${r0(applied.reduce((a, o) => a + (o.kcal || 0), 0))} kcal (${applied.map(o => `${fname(o.foodId)} ${mealName(o.mealId)}`).join(', ')})</div>` : ''}${hasOpt ? '<div class="sub" style="margin-top:6px">Elegí cómo:</div>' : sug.bankAllowance > 0 ? '<div class="sub" style="margin-top:6px">Ya no quedan comidas por comer: si querés compensar, sumalo con + Añadir.</div>' : ''}
+      ${sug.bankChanges?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Carbos: ${lab(sug.bankChanges)}</span><button class="p s" data-a="acceptBank" data-o="carb">Aceptar</button></div>` : ''}
+      ${sug.bankEgg?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Huevos: ${lab(sug.bankEgg)} · ${r0(sug.bankEgg.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="egg">Aceptar</button></div>` : ''}
+      ${sug.bankPb?.length ? `<div class="row sp" style="margin-top:8px;gap:8px"><span class="sub grow">Cacahuete en polvo: ${lab(sug.bankPb)} · ${r0(sug.bankPb.reduce((a, c) => a + c.kcal, 0))} kcal</span><button class="p s" data-a="acceptBank" data-o="pb">Aceptar</button></div>` : ''}
+      <div class="sub" style="margin-top:6px">Caduca el domingo.</div></div>`; } }
   if (d <= T && !dv.close) h += `<button class="p" style="width:100%;margin-top:8px" data-a="close" data-manual="1" data-d="${d}" data-v="with_changes">Cerrar ${d === T ? 'hoy' : 'este día'}</button><div class="sub" style="text-align:center;margin-top:6px">Las comidas no marcadas cuentan como no comidas.</div>`;
   return h;
 }

@@ -231,8 +231,9 @@ export function redistributionSuggestion(state, date, today) {
     out.unplaced = round(Math.max(0, b.remaining));
   }
   const bank = weekBank(state, date, today);
-  if (bank > P.redistTol && date === today) {
-    const allow = Math.min(P.carryCap, bank);
+  if (bank > P.redistTol && date === today && (P.carryCap - (state.overrides[date] || []).filter(o => o.fromBank).reduce((a, o) => a + (o.kcal || 0), 0)) > P.redistTol) {
+    const usedToday = (state.overrides[date] || []).filter(o => o.fromBank).reduce((a, o) => a + (o.kcal || 0), 0);
+    const allow = Math.max(0, Math.min(P.carryCap - usedToday, bank));
     const future = dv.meals.filter(m => m.status === 'pending' && !m.touched).map(m => ({ id: m.id, items: m.planned }));
     const r = distribute(state.foods, future, allow, ['carb']);
     const b = r.remaining > 60 ? boost(state.foods, future, r.remaining) : { changes: [] };
