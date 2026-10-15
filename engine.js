@@ -37,6 +37,9 @@ export const DEFAULT_FOODS = {
   limonada: { name: 'Limonada light Don Simón', per100: { kcal: 23, p: 0.1, c: 5.6, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   naranjab: { name: 'Bebida de naranja sin azúcares añadidos Mercadona', per100: { kcal: 22, p: 0.3, c: 5, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   icetea:   { name: 'Ice Tea Zero limón Hacendado', per100: { kcal: 2.9, p: 0, c: 0.1, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
+  hummus:   { name: 'Hummus tropical Hacendado (mango y curry)', per100: { kcal: 298, p: 5.8, c: 16, f: 22.4 }, src: 'etiqueta' },
+  cottage:  { name: 'Cottage cheese Philadelphia High protein', per100: { kcal: 96, p: 10, c: 3.1, f: 4.6 }, src: 'etiqueta' },
+  mozza:    { name: 'Queso mozzarella rallado Hacendado (Pizza-Roma)', per100: { kcal: 283, p: 21, c: 2.5, f: 21 }, src: 'etiqueta' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
