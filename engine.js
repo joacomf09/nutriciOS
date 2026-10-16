@@ -42,6 +42,9 @@ export const DEFAULT_FOODS = {
   hummus:   { name: 'Hummus tropical Hacendado (mango y curry)', per100: { kcal: 298, p: 5.8, c: 16, f: 22.4 }, src: 'etiqueta' },
   cottage:  { name: 'Cottage cheese Philadelphia High protein', per100: { kcal: 96, p: 10, c: 3.1, f: 4.6 }, src: 'etiqueta' },
   mozza:    { name: 'Queso mozzarella rallado Hacendado (Pizza-Roma)', per100: { kcal: 283, p: 21, c: 2.5, f: 21 }, src: 'etiqueta' },
+  tomateart:{ name: 'Tomate frito receta artesana Hacendado', per100: { kcal: 201, p: 1.6, c: 14.3, f: 15 }, src: 'etiqueta (frasco 300 g)' },
+  burger:   { name: 'Burger meat vacuno gruesa Mercadona (cruda)', per100: { kcal: 219, p: 17, c: 4.1, f: 15 }, src: 'etiqueta (2 uds de 180 g)' },
+  fusilli:  { name: 'Fusilli Armando (pasta cruda)', per100: { kcal: 354, p: 14, c: 70.2, f: 1.3 }, src: 'etiqueta (paquete 500 g)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
