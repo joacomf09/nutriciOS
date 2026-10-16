@@ -89,7 +89,7 @@ export const DEFAULT_SETTINGS = {
   params: {
     phaseDev: { deficit: -400, mantenimiento: 0, volumen: 200, volumen_agresivo: 350 },
     kcalPerKg: { deficit: 7000, mantenimiento: 7000, volumen: 5000, volumen_agresivo: 4500 },
-    gBase: 0.5, tdeeUpdateCap: 250, calibrationWeeksMin: 2,
+    gBase: 0.5, tdeeUpdateCap: 250, calibrationWeeksMin: 1, firstStepCap: 100,
     coverageMin: 0.6, daysClosedMin: 5, weighinsMin: 4,
     deadband: 100, stepCap: 200, stepCapHyst: 350,
     carryCap: 300, redistTol: 50, kcalFloor: 1970,
@@ -448,7 +448,10 @@ export function weeklyProposal(state, ws, today) {
   else if (!h.calibrable && !phaseChange) { delta = 0; reason = 'Sin cambio: datos insuficientes esta semana.'; }
   else if (Math.abs(delta) < P.deadband) { reason = `Cambio calculado ${round(delta)} kcal < banda muerta ${P.deadband}: sin cambio.`; delta = 0; }
   else {
-    const cap = Math.sign(delta) === Math.sign(h.prevDelta) && h.prevDelta !== 0 ? P.stepCapHyst : P.stepCap;
+    let cap = Math.sign(delta) === Math.sign(h.prevDelta) && h.prevDelta !== 0 ? P.stepCapHyst : P.stepCap;
+    // Primer ajuste real (1.5.36): paso más chico, porque una sola semana de peso tiene mucho ruido de agua.
+    const anyApplied = state.versions.some(v => v.proposalId && v.deltaKcal);
+    if (!anyApplied && P.firstStepCap) cap = Math.min(cap, P.firstStepCap);
     const raw = delta; delta = Math.max(-cap, Math.min(cap, delta));
     reason = `Meta de fase ${round(goal)} kcal (${PHASE_LABEL[phase]} ${P.phaseDev[phase] >= 0 ? '+' : ''}${P.phaseDev[phase]}); vigente ${round(cur.kcal)}; cambio ${round(raw)} → ${round(delta)} (tope ${cap}).`;
   }
@@ -463,6 +466,14 @@ export function weeklyProposal(state, ws, today) {
   if (adj.leverExhausted) warnings.push('Palanca agotada: los carbohidratos y huevos/whey llegaron a su límite; faltan ' + adj.remaining + ' kcal. Decidí vos (cambiar fase o editar el plan).');
   if (adj.usedNego) warnings.push('Se usaron huevos/whey como segunda palanca.');
   return { id: 'w' + ws, weekStart: ws, hist: h, phase, phaseChange, before: cur, after, deltaKcal: round(after.kcal - cur.kcal), changes: adj.changes, meals: adj.meals, why, warnings, calcVersion: CALC_VERSION };
+}
+
+// Estimado en vivo (1.5.36): la propuesta que daría la revisión de la semana en curso con los datos de hoy.
+// No emite eventos: simula un REVIEW sobre una copia del estado.
+export function liveProposal(state, today) {
+  const ws = weekStart(today);
+  const st = { ...state, reviews: { ...state.reviews, [ws]: state.reviews[ws] || { weekStart: ws, live: true } } };
+  return weeklyProposal(st, ws, today);
 }
 
 // ---------- export para IA ----------

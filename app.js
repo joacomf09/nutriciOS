@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.35';
+export const APP_VERSION = '1.5.36';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -234,6 +234,22 @@ function liveHint(card) {
 }
 document.addEventListener('input', e => { if (e.target.matches('.items [data-f]')) liveHint(e.target.closest('[data-meal]')); });
 
+// ---------- estimado del próximo lunes (1.5.36) ----------
+function liveBlock(T, full) {
+  let p; try { p = E.liveProposal(S, T); } catch { return ''; } if (!p) return '';
+  const h = p.hist, d = p.deltaKcal, P = S.settings.params;
+  const head = d ? `${d > 0 ? '+' : ''}${r0(d)} kcal/día` : 'sin cambio';
+  const miss = []; if (h.closedDays < P.daysClosedMin) miss.push(`${P.daysClosedMin - h.closedDays} días cerrados más`); if (h.weighins < P.weighinsMin) miss.push(`${P.weighinsMin - h.weighins} pesajes más`);
+  if (!full) return `<div class="sub" style="margin-top:6px">Ajuste estimado para el lunes: <b style="color:var(--ink)">${head}</b>${miss.length ? ` · faltan ${miss.join(' y ')}` : ''} · detalle en Semana.</div>`;
+  return `<div class="card hi"><div class="row sp"><h3>Ajuste estimado para el lunes</h3><span class="cond" style="font-size:22px;font-weight:700;color:var(--acc)">${head}</span></div>
+    <div class="sub" style="margin-top:4px">Con los datos de hoy. Se recalcula cada vez que cerrás un día o cargás un peso; la decisión real es en la revisión del lunes.</div>
+    <table style="margin-top:8px"><tr><td>Gasto estimado</td><td class="r num">${r0(h.tdee)} kcal</td></tr><tr><td>Ingesta media (días cerrados)</td><td class="r num">${h.intake == null ? '—' : r0(h.intake) + ' kcal'}</td></tr>
+    <tr><td>Peso</td><td class="r num">${h.slopeWeek == null ? '—' : (h.slopeWeek >= 0 ? '+' : '') + E.round(h.slopeWeek, 2) + ' kg/sem'}</td></tr><tr><td>Días cerrados · pesajes</td><td class="r num">${h.closedDays}/7 · ${h.weighins}</td></tr>
+    <tr><td>Meta actual → estimada</td><td class="r num">${r0(p.before.kcal)} → <b>${r0(p.after.kcal)}</b></td></tr></table>
+    ${miss.length ? `<div class="sub" style="margin-top:6px;color:var(--warn)">Para que la semana cuente faltan ${miss.join(' y ')}.</div>` : ''}
+    ${p.why.slice(-1).map(w => `<div class="sub" style="margin-top:6px">${esc(w)}</div>`).join('')}</div>`;
+}
+
 // ---------- HOY ----------
 function pendingCloses(T) {
   const out = []; for (let i = 1; i <= 7; i++) { const d = E.addDays(T, -i); if (d < S.settings.startDate) break; if (!S.closes[d]) out.push(d); }
@@ -322,7 +338,7 @@ function vHoy(T) {
     <div id="customx" class="hidden"><label>Nombre</label><input id="xn" placeholder="Ej.: pizza"><div class="row"><div class="grow"><label>kcal</label><input id="xk" type="number"></div><div class="grow"><label>P</label><input id="xp" type="number"></div><div class="grow"><label>C</label><input id="xc" type="number"></div><div class="grow"><label>G</label><input id="xf" type="number"></div></div><button class="p s" style="margin-top:8px" data-a="addx">Añadir</button></div></div>`;
   // Día ya cerrado: el saldo que queda incluyendo el cierre de hoy (1.5.34)
   if (d === T && dv.close) { const nx = E.addDays(d, 1), same = E.weekStart(nx) === E.weekStart(d), rest = same ? E.weekBank(S, nx, T) : 0;
-    h += `<div class="card" id="bankcard"><div class="sub">Saldo semanal con el cierre de hoy: ${same ? (rest > 50 ? `<b style="color:var(--ink)">${r0(rest)} kcal</b> por compensar (hasta +300 por día).` : 'al día.') : 'se reinicia el lunes.'}</div></div>`; }
+    h += `<div class="card" id="bankcard"><div class="sub">Saldo semanal con el cierre de hoy: ${same ? (rest > 50 ? `<b style="color:var(--ink)">${r0(rest)} kcal</b> por compensar (hasta +300 por día).` : 'al día.') : 'se reinicia el lunes.'}</div>${liveBlock(T, false)}</div>`; }
   // Saldo semanal: tarjeta persistente al final del día (1.5.25)
   if (d === T && !dv.close) { const remaining = E.weekBank(S, d, T), applied = (S.overrides[d] || []).filter(o => o.fromBank);
     const hasOpt = sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length || sug.bankEgg?.length);
@@ -352,7 +368,7 @@ function vPreview(T) {
   if (wpts.length >= 2) { const ks = wpts.map(p => p.kg), lo = Math.min(...ks) - 0.3, hi = Math.max(...ks) + 0.3; const X = d => 14 + (E.diffDays(d, E.addDays(T, -27)) / 27) * 322, Y = k => 100 - (k - lo) / (hi - lo) * 84;
     wsvg = `<svg viewBox="0 0 350 120" width="100%" role="img" aria-label="Peso de los últimos 28 días"><polyline fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round" points="${wpts.map(p => X(p.date) + ',' + Y(p.kg)).join(' ')}"/>${wpts.map(p => `<circle cx="${X(p.date)}" cy="${Y(p.kg)}" r="3" fill="var(--acc)"/>`).join('')}<text x="14" y="116" font-size="11" fill="var(--mute)">${dLabel(E.addDays(T, -27))}</text><text x="336" y="116" text-anchor="end" font-size="11" fill="var(--mute)">hoy</text><text x="336" y="12" text-anchor="end" font-size="11" fill="var(--mute)">${E.round(hi - 0.3, 1)} kg</text></svg>`; }
   const sl = pv.slopeWeek == null ? '—' : (pv.slopeWeek >= 0 ? '+' : '') + E.round(pv.slopeWeek, 2) + ' kg/sem';
-  return `<div class="row sp"><h1>Semana en curso</h1>${isPrev ? '<span class="tag w">PREVIEW</span>' : ''}</div>
+  return liveBlock(T, true) + `<div class="row sp"><h1>Semana en curso</h1>${isPrev ? '<span class="tag w">PREVIEW</span>' : ''}</div>
   <div class="sub">${dLabel(pv.weekStart)} → ${dLabel(E.addDays(pv.weekStart, 6))} · ${E.PHASE_LABEL[pv.phase]}${isPrev ? ' · datos parciales: se actualiza a medida que cargás. Los datos reales reemplazan esta vista después de la primera revisión.' : ''}</div>
   <div class="card"><div class="row sp"><h3>Comido por día</h3><span class="sub"><i class="dot" style="background:var(--p)"></i>P <i class="dot" style="background:var(--c)"></i>C <i class="dot" style="background:var(--f)"></i>G · · meta</span></div><svg viewBox="0 0 350 156" width="100%" role="img" aria-label="Calorías comidas por día">${bars}</svg></div>
   <div class="card"><div class="row sp"><h3>Peso · 28 días</h3><span class="sub cond" style="font-size:16px">${sl}</span></div>${wsvg || '<div class="sub">Faltan pesajes.</div>'}</div>
@@ -682,6 +698,9 @@ document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } =
 
 // ---------- arranque ----------
 async function migrate() {
+  // 1.5.36: calibrar desde la 1ª semana (pedido del usuario) con primer paso máx. ±100
+  if (!S.settings.mig1536) { const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 100 }; if (params.calibrationWeeksMin === 2) params.calibrationWeeksMin = 1;
+    await emitMany([['SETTINGS', { params }], ['SETTINGS', { mig1536: true }]]); }
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
   const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));

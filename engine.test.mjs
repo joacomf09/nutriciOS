@@ -58,10 +58,21 @@ function simulate(weeks, slope, closeAll = true, startKg = 77.7) {
   return ev;
 }
 
-t('semana 1: calibrando, sin cambio de meta', () => {
-  const s = E.replay(simulate(1, 0.25));
+t('semana 1 (1.5.36): ya ajusta, con primer paso máx. ±100', () => {
+  const s = E.replay(simulate(1, 0.6));
   const p = E.weeklyProposal(s, '2026-10-12', '2026-10-19');
+  assert.ok(p.deltaKcal < 0 && p.deltaKcal >= -115, `delta ${p.deltaKcal}`); assert.ok(p.why.join(' ').includes('tope 100'));
+});
+t('con calibrationWeeksMin = 2 sigue calibrando la semana 1', () => {
+  const ev = simulate(1, 0.25); ev[0] = JSON.parse(JSON.stringify(ev[0])); ev[0].payload.settings.params.calibrationWeeksMin = 2;
+  const p = E.weeklyProposal(E.replay(ev), '2026-10-12', '2026-10-19');
   assert.equal(p.deltaKcal, 0); assert.ok(p.why.join(' ').includes('Calibrando'));
+});
+t('estimado en vivo: no modifica el estado y coincide con la revisión del lunes', () => {
+  const ev = simulate(1, 0.6).filter(e => e.type !== 'REVIEW'); const s = E.replay(ev); const before = JSON.stringify(s);
+  const live = E.liveProposal(s, '2026-10-18'); assert.equal(JSON.stringify(s), before);
+  const real = E.weeklyProposal(E.replay([...ev, { type: 'REVIEW', payload: { weekStart: '2026-10-12' } }]), '2026-10-12', '2026-10-19');
+  assert.equal(live.deltaKcal, real.deltaKcal);
 });
 
 t('gasto converge hacia el implícito y la propuesta respeta tope ±200', () => {
