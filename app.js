@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.33';
+export const APP_VERSION = '1.5.34';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -167,7 +167,7 @@ function closeSummary(date) {
     <div class="sub"><span class="num" style="font-size:20px;color:var(--ink)">${r0(a.kcal)}</span> / ${r0(tg.kcal)} kcal · ${(pct * 100).toFixed(1).replace('.', ',')} %</div>
     <div class="csm"><div><b style="color:var(--p)">${r0(a.p)}</b><span>/${r0(tg.p)} prot</span></div><div><b style="color:var(--c)">${r0(a.c)}</b><span>/${r0(tg.c)} carb</span></div><div><b style="color:var(--f)">${r0(a.f)}</b><span>/${r0(tg.f)} grasa</span></div></div>
     <div class="mlist">${meals}</div>
-    <button class="p" style="width:100%" data-a="closesum">Listo</button></div>`;
+    <div class="csbk"><div class="sub" style="color:var(--ink)">¿Hacés el backup ahora?</div><div class="row" style="gap:8px"><button class="p grow" data-a="closebk">Sí, guardar</button><button class="grow" data-a="closesum">No</button></div></div></div>`;
   document.body.appendChild(d); if (ok) burst();
 }
 function burst() {
@@ -320,6 +320,9 @@ function vHoy(T) {
   h += `<h2>Extras</h2><div class="card">${dv.extras.map(x => `<div class="row sp"><span>${esc(x.name)} ${x.estimated ? '<span class="tag">estimado</span>' : ''}</span><span class="num">${r0(x.kcal)} kcal <button class="s del" data-a="delx" data-x="${x.id}">✕</button></span></div>`).join('') || '<div class="sub">Comida fuera del plan.</div>'}
     <div class="row wrap" style="margin-top:8px"><button class="s" data-a="quick" data-k="200">+200</button><button class="s" data-a="quick" data-k="500">+500</button><button class="s" data-a="quick" data-k="1000">+1.000</button><button class="s" data-a="custom">Personalizado</button></div>
     <div id="customx" class="hidden"><label>Nombre</label><input id="xn" placeholder="Ej.: pizza"><div class="row"><div class="grow"><label>kcal</label><input id="xk" type="number"></div><div class="grow"><label>P</label><input id="xp" type="number"></div><div class="grow"><label>C</label><input id="xc" type="number"></div><div class="grow"><label>G</label><input id="xf" type="number"></div></div><button class="p s" style="margin-top:8px" data-a="addx">Añadir</button></div></div>`;
+  // Día ya cerrado: el saldo que queda incluyendo el cierre de hoy (1.5.34)
+  if (d === T && dv.close) { const nx = E.addDays(d, 1), same = E.weekStart(nx) === E.weekStart(d), rest = same ? E.weekBank(S, nx, T) : 0;
+    h += `<div class="card" id="bankcard"><div class="sub">Saldo semanal con el cierre de hoy: ${same ? (rest > 50 ? `<b style="color:var(--ink)">${r0(rest)} kcal</b> por compensar (hasta +300 por día).` : 'al día.') : 'se reinicia el lunes.'}</div></div>`; }
   // Saldo semanal: tarjeta persistente al final del día (1.5.25)
   if (d === T && !dv.close) { const remaining = E.weekBank(S, d, T), applied = (S.overrides[d] || []).filter(o => o.fromBank);
     const hasOpt = sug.bankAllowance > 0 && (sug.bankChanges?.length || sug.bankPb?.length || sug.bankEgg?.length);
@@ -532,6 +535,7 @@ document.addEventListener('click', async e => {
       else await emit('DAY_CLOSE', { date: cd, answer: ans });
       if (el.dataset.manual) closeSummary(cd); else burst(); break; }
     case 'closesum': document.getElementById('closesum')?.remove(); break;
+    case 'closebk': document.getElementById('closesum')?.remove(); backup(); break;
     case 'reopen': await emit('DAY_CLOSE', { date: d, answer: null }); break;
     case 'addw': { const kg = parseKg($('#wkg').value); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast(`Peso guardado: ${kg} kg`); } else toast('Peso no válido');  break; }
     case 'toggle': {
