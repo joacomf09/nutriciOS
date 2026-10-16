@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.34';
+export const APP_VERSION = '1.5.35';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -159,7 +159,7 @@ function closeSummary(date) {
   const meals = v.meals.map(m => { const eaten = ['confirmed', 'edited', 'replaced'].includes(m.status), extra = m.actualItems.some(it => it.role === 'extra' && it.qty > 0);
     return `<div class="${eaten ? '' : 'sk'}"><span class="ck ${eaten ? '' : 'x'}">${eaten ? '✓' : '–'}</span>${esc(m.name.replace(/ \(.*\)/, ''))}${!eaten ? ' <em>omitida</em>' : extra ? ' <em>+ añadido</em>' : ''}<b class="num">${r0(eaten ? m.actualTot.kcal : 0)}</b></div>`; }).join('');
   const title = ok ? '¡Felicidades!<br>Cumpliste tu día' : diff < 0 ? 'Día cerrado' : 'Día cerrado';
-  const sub = ok ? '' : diff < 0 ? `<div class="sub">Te faltaron <b>${r0(-diff)} kcal</b>. Hasta +300 por día pasan al saldo de la semana.</div>` : `<div class="sub">Te pasaste <b>${r0(diff)} kcal</b>. Solo informativo.</div>`;
+  const sub = ok ? '' : diff < 0 ? `<div class="sub">Te faltaron <b>${r0(-diff)} kcal</b>: se suman al saldo de la semana (se recuperan hasta +300 por día).</div>` : `<div class="sub">Te pasaste <b>${r0(diff)} kcal</b>: se descuentan del saldo de la semana.</div>`;
   const d = document.createElement('div'); d.id = 'closesum'; d.className = 'modal';
   d.innerHTML = `<div class="mbox cs"><div class="eyebrow">Día cerrado · ${dLabel(date)}</div>
     <div class="csring"><svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="Anillos del día">${ring(62, a.kcal / tg.kcal, 'var(--acc)', 0)}${ring(50, a.p / tg.p, 'var(--p)', .15)}${ring(38, a.c / tg.c, 'var(--c)', .3)}${ring(26, a.f / tg.f, 'var(--f)', .45)}</svg>${ok ? '<div class="gstamp">CUMPLIDO</div>' : ''}</div>
@@ -276,7 +276,7 @@ function vHoy(T) {
   if (d === T && !dv.close) {
     if (sug.sameDay.length) h += `<div class="card hi"><div><b>${r0(sug.delta)} kcal por colocar</b> → ${sug.sameDay.map(c => `+${E.round(c.qty - c.from)} g ${esc(S.foods[c.foodId].name.split(',')[0].toLowerCase())} (${mealName(c.mealId)})`).join(', ')}${sug.unplaced > 50 ? `. Quedan ${r0(sug.unplaced)} kcal al saldo semanal.` : ''}</div>
       <div class="row" style="margin-top:8px"><button class="p s" data-a="acceptRedist">Aceptar</button><button class="s" data-a="ignore">Ignorar</button></div></div>`;
-    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Solo informativo: no se compensa solo.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida pendiente ves cuánto podrías bajar el carbo.' : ''}</div>`;
+    if (sug.excess > 0) h += `<div class="card wn">+${r0(sug.excess)} kcal sobre la meta. Al cerrar el día se descuentan del saldo de la semana.${E.lastMealCarbHint(S, d, T)?.dir < 0 ? ' En la última comida pendiente ves cuánto podrías bajar el carbo.' : ''}</div>`;
   }
   // comidas
   h += `<h2>Comidas</h2>`;

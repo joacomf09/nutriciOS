@@ -212,4 +212,22 @@ t('saldo: tras aceptar +300 hoy no ofrece más ese día aunque quede saldo', () 
   const r2 = E.redistributionSuggestion(s2, '2026-10-14', '2026-10-14');
   assert.ok(!r2.bankAllowance, `ofrece ${r2.bankAllowance}`); assert.ok(E.weekBank(s2, '2026-10-14', '2026-10-14') > 1000);
 });
+t('saldo con signo: un día pasado de calorías resta del saldo', () => {
+  const ev = [init(), ...['merienda', 'post'].map(mealId => ({ type: 'MEAL_SET', payload: { date: '2026-10-13', mealId, status: 'skipped' } })), { type: 'DAY_CLOSE', payload: { date: '2026-10-13', answer: 'with_changes' } }];
+  const s1 = E.replay(ev); const b1 = E.weekBank(s1, '2026-10-15', '2026-10-15');
+  const s2 = E.replay([...ev, { type: 'EXTRA', payload: { date: '2026-10-14', id: 'x', name: 'x', kcal: 400, p: 0, c: 0, f: 0 } }, { type: 'DAY_CLOSE', payload: { date: '2026-10-14', answer: 'all_plan' } }]);
+  assert.ok(Math.abs((b1 - E.weekBank(s2, '2026-10-15', '2026-10-15')) - 400) <= 1, `${b1} → ${E.weekBank(s2, '2026-10-15', '2026-10-15')}`);
+  const s3 = E.replay([...ev, { type: 'EXTRA', payload: { date: '2026-10-14', id: 'x', name: 'x', kcal: 3000, p: 0, c: 0, f: 0 } }, { type: 'DAY_CLOSE', payload: { date: '2026-10-14', answer: 'all_plan' } }]);
+  assert.equal(E.weekBank(s3, '2026-10-15', '2026-10-15'), 0); // nunca negativo
+});
+t('saldo: lo aplicado y comido un día anterior no se descuenta dos veces', () => {
+  const ev = [init(), ...['merienda', 'post'].map(mealId => ({ type: 'MEAL_SET', payload: { date: '2026-10-13', mealId, status: 'skipped' } })), { type: 'DAY_CLOSE', payload: { date: '2026-10-13', answer: 'with_changes' } }];
+  const b0 = E.weekBank(E.replay(ev), '2026-10-14', '2026-10-14');
+  const r = E.redistributionSuggestion(E.replay(ev), '2026-10-14', '2026-10-14');
+  const ov = r.bankChanges.map(c => ({ type: 'OVERRIDE', payload: { date: '2026-10-14', mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true } }));
+  const applied = r.bankChanges.reduce((a, c) => a + c.kcal, 0);
+  const s = E.replay([...ev, ...ov, { type: 'DAY_CLOSE', payload: { date: '2026-10-14', answer: 'all_plan' } }]);
+  const b1 = E.weekBank(s, '2026-10-15', '2026-10-15');
+  assert.ok(Math.abs((b0 - b1) - applied) <= 15, `antes ${b0}, aplicado ${applied}, después ${b1}`);
+});
 console.log(`\n${n} pruebas OK`);

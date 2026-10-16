@@ -192,11 +192,12 @@ export function dayView(state, date, today) {
 // ---------- saldo semanal y redistribución (solo carbohidratos, +300/día, caduca el domingo) ----------
 export function weekBank(state, date, today) {
   const ws = weekStart(date); let bank = 0;
+  // Balance con signo (1.5.35): lo que faltó suma, lo que te pasaste resta. Lo aplicado del saldo en días
+  // anteriores ya está dentro de lo comido (actual), así que no se descuenta aparte (sería contarlo dos veces).
   for (const d of range(ws, 7)) {
     if (d >= date) break;
     const dv = dayView(state, d, today);
-    if (dv.hasData) bank += Math.max(0, dv.target.kcal - dv.actual.kcal);
-    for (const o of state.overrides[d] || []) if (o.fromBank) bank -= o.kcal || 0;
+    if (dv.hasData) bank += dv.target.kcal - dv.actual.kcal;
   }
   for (const o of state.overrides[date] || []) if (o.fromBank) bank -= o.kcal || 0;
   return Math.max(0, round(bank));
