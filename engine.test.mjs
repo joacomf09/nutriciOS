@@ -8,7 +8,7 @@ let id = 0; const W = (date, kg, fatPct = null) => ({ type: 'WEIGHT', payload: {
 t('plan base ≈ 3.000 kcal y ~240 g proteína', () => {
   const tot = E.mealsTotal(E.DEFAULT_FOODS, E.DEFAULT_MEALS);
   console.log('   plan', E.round(tot.kcal), 'P', E.round(tot.p), 'C', E.round(tot.c), 'G', E.round(tot.f));
-  assert.ok(tot.kcal > 2850 && tot.kcal < 3200); assert.ok(tot.p > 220 && tot.p < 260);
+  assert.ok(tot.kcal > 2850 && tot.kcal < 3300); assert.ok(tot.p > 220 && tot.p < 260);
 });
 
 t('días pasados sin cerrar quedan assumed y no calibran', () => {
@@ -109,7 +109,7 @@ t('hoy: comidas pendientes (desmarcadas) cuentan en proyección, no como comidas
   const s = E.replay([init(), { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'desayuno', status: 'confirmed' } }]);
   const dv = E.dayView(s, '2026-10-15', '2026-10-15');
   assert.equal(dv.meals.filter(m => m.status === 'pending').length, 4);
-  assert.ok(dv.eatenConfirmed.kcal > 500 && dv.eatenConfirmed.kcal < 650);
+  assert.ok(dv.eatenConfirmed.kcal > 500 && dv.eatenConfirmed.kcal < 750);
 });
 t('omitir post-gym con carbos al tope usa maní en polvo antes del saldo', () => {
   const ev = [init(), { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'desayuno', status: 'skipped' } }, { type: 'MEAL_SET', payload: { date: '2026-10-15', mealId: 'merienda', status: 'skipped' } }];

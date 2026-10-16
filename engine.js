@@ -51,6 +51,7 @@ export const DEFAULT_MEALS = [
     { foodId: 'pan', qty: 2, unit: 'u', role: 'fixed' },
     { foodId: 'huevo', qty: 5, unit: 'u', role: 'nego', min: 3, max: 6, step: 1 },
     { foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' },
+    { foodId: 'mozza', qty: 28.6, unit: 'g', role: 'fixed' },
     { foodId: 'psyllium', qty: 1, unit: 'u', role: 'fixed' } ] },
   { id: 'almuerzo', name: 'Almuerzo', items: [
     { foodId: 'pollo', qty: 300, unit: 'g', role: 'fixed' },

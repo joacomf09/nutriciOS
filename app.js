@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.27';
+export const APP_VERSION = '1.5.28';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -715,6 +715,16 @@ async function migrate() {
     const list = [];
     if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: '2 kiwis en la cena' }]);
     list.push(['SETTINGS', { mig1519: true }]);
+    await emitMany(list);
+  }
+  // 1.5.28: mozzarella rallada en el desayuno (paquete de 200 g ÷ 7 días = 28,6 g; se ajusta por gramo en Modificar)
+  if (!S.settings.mig1528 && !E.versionAt(S, T).meals.some(m => m.items.some(it => it.foodId === 'mozza'))) {
+    const cur = JSON.parse(JSON.stringify(E.versionAt(S, T).meals));
+    const tg = cur.filter(m => m.id === 'desayuno');
+    for (const m of tg) m.items.push({ foodId: 'mozza', qty: 28.6, unit: 'g', role: 'fixed' });
+    const list = [];
+    if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Mozzarella rallada en el desayuno (28,6 g)' }]);
+    list.push(['SETTINGS', { mig1528: true }]);
     await emitMany(list);
   }
 }
