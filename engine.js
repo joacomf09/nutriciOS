@@ -46,6 +46,7 @@ export const DEFAULT_FOODS = {
   burger:   { name: 'Burger meat vacuno gruesa Mercadona (cruda)', per100: { kcal: 219, p: 17, c: 4.1, f: 15 }, src: 'etiqueta (2 uds de 180 g)' },
   fusilli:  { name: 'Fusilli Armando (pasta cruda)', per100: { kcal: 354, p: 14, c: 70.2, f: 1.3 }, src: 'etiqueta (paquete 500 g)' },
   pestorosso:{ name: 'Pesto rosso con tomates secados al sol Gallo', per100: { kcal: 364, p: 4.2, c: 9.3, f: 34 }, src: 'etiqueta (tarro, 1 porción = 38 g)' },
+  yogfagsl: { name: 'Yogur natural sin lactosa La Fageda (pote 125 g)', per100: { kcal: 78, p: 5.4, c: 6.4, f: 3.4 }, unitG: 125, unitName: 'pote', src: 'FatSecret (La Fageda yogur sin lactosa, por 100 g; no es etiqueta del envase)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
