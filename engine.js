@@ -37,6 +37,7 @@ export const DEFAULT_FOODS = {
   grana:    { name: 'Queso rallado Grana Padano Hacendado', per100: { kcal: 398, p: 33, c: 0, f: 29 }, src: 'etiqueta' },
   pina:     { name: 'Piña natural a rodajas Mercadona', per100: { kcal: 58, p: 0.5, c: 14, f: 0 }, src: 'etiqueta' },
   limonada: { name: 'Limonada light Don Simón', per100: { kcal: 23, p: 0.1, c: 5.6, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
+  dextrosa: { name: 'Dextrosa HSN (polvo)', per100: { kcal: 399, p: 0, c: 100, f: 0 }, src: 'etiqueta (1 dosificador 70 ml ≈ 50 g)' },
   naranjab: { name: 'Bebida de naranja sin azúcares añadidos Mercadona', per100: { kcal: 22, p: 0.3, c: 5, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   icetea:   { name: 'Ice Tea Zero limón Hacendado', per100: { kcal: 2.9, p: 0, c: 0.1, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   hummus:   { name: 'Hummus tropical Hacendado (mango y curry)', per100: { kcal: 298, p: 5.8, c: 16, f: 22.4 }, src: 'etiqueta' },

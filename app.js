@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.36';
+export const APP_VERSION = '1.5.37';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -178,7 +178,7 @@ function burst() {
   const msg = document.createElement('div'); msg.className = 'burstmsg'; msg.textContent = 'Día cerrado'; b.appendChild(msg);
   document.body.appendChild(b); setTimeout(() => b.remove(), 1600);
 }
-const MEAL_TIME = { desayuno: '08:00', almuerzo: '13:30', merienda: '17:00', post: '19:30', cena: '21:30' };
+const MEAL_TIME = { desayuno: '08:00', almuerzo: '13:30', merienda: '17:00', intra: '19:15', post: '19:30', cena: '21:30' };
 function countdown(time) {
   if (!time) return '';
   const [hh, mm] = time.split(':').map(Number); const now = new Date(); const diff = Math.round((hh * 60 + mm) - (now.getHours() * 60 + now.getMinutes()));
@@ -750,6 +750,20 @@ async function migrate() {
     const list = [];
     if (tg.length) list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Mozzarella rallada en el desayuno (28,6 g)' }]);
     list.push(['SETTINGS', { mig1528: true }]);
+    await emitMany(list);
+  }
+  // 1.5.37: comida Intra-entreno (50 g dextrosa + 100 ml bebida de naranja) desde MAÑANA; días anteriores sin cambios
+  if (!S.settings.mig1537) {
+    const from = E.addDays(T, 1), base = E.versionAt(S, from);
+    const list = [];
+    if (!base.meals.some(m => m.id === 'intra')) {
+      const cur = JSON.parse(JSON.stringify(base.meals));
+      const i = cur.findIndex(m => m.id === 'post'); const at = i < 0 ? cur.length : i;
+      cur.splice(at, 0, { id: 'intra', name: 'Intra-entreno', items: [
+        { foodId: 'dextrosa', qty: 50, unit: 'g', role: 'fixed' }, { foodId: 'naranjab', qty: 100, unit: 'g', role: 'fixed' } ] });
+      list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: from, meals: cur, reason: 'Intra-entreno: 50 g dextrosa + 100 ml bebida de naranja' }]);
+    }
+    list.push(['SETTINGS', { mig1537: true }]);
     await emitMany(list);
   }
 }
