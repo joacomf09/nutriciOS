@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.28';
+export const APP_VERSION = '1.5.29';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -536,7 +536,9 @@ document.addEventListener('click', async e => {
     case 'addw': { const kg = parseKg($('#wkg').value); if (kg > 30 && kg < 250) { await emit('WEIGHT', { id: uid(), date: el.dataset.d, kg }); toast(`Peso guardado: ${kg} kg`); } else toast('Peso no válido');  break; }
     case 'toggle': {
       const m = dv().meals.find(x => x.id === el.dataset.m);
-      if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) await emit('MEAL_RESET', { date: d, mealId: m.id });
+      // Con Modificar abierto, el check guarda lo que está en el panel (antes desmarcaba y borraba los cambios).
+      if (UI.open[d + m.id]) { el.closest('.card')?.querySelector(`[data-a="saveMeal"][data-m="${m.id}"]`)?.click(); break; }
+      if (['confirmed', 'edited', 'replaced'].includes(m.status) && m.touched) { await emit('MEAL_RESET', { date: d, mealId: m.id }); if (m.status !== 'confirmed') toast('Desmarcada: se quitaron los cambios de esta comida'); }
       else await emit('MEAL_SET', { date: d, mealId: m.id, status: 'confirmed' });
       break; }
     case 'addItem': { const mid = el.dataset.m; const fid = $('#addf-' + mid).value, q = parseFloat(($('#addq-' + mid).value || '').replace(',', '.'));
