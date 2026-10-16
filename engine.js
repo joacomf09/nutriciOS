@@ -45,6 +45,7 @@ export const DEFAULT_FOODS = {
   tomateart:{ name: 'Tomate frito receta artesana Hacendado', per100: { kcal: 201, p: 1.6, c: 14.3, f: 15 }, src: 'etiqueta (frasco 300 g)' },
   burger:   { name: 'Burger meat vacuno gruesa Mercadona (cruda)', per100: { kcal: 219, p: 17, c: 4.1, f: 15 }, src: 'etiqueta (2 uds de 180 g)' },
   fusilli:  { name: 'Fusilli Armando (pasta cruda)', per100: { kcal: 354, p: 14, c: 70.2, f: 1.3 }, src: 'etiqueta (paquete 500 g)' },
+  pestorosso:{ name: 'Pesto rosso con tomates secados al sol Gallo', per100: { kcal: 364, p: 4.2, c: 9.3, f: 34 }, src: 'etiqueta (tarro, 1 porción = 38 g)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
