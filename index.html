@@ -47,6 +47,10 @@ nav button svg{width:24px;height:24px}nav button.on{color:var(--acc);font-weight
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}td.r,th.r{text-align:right}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{border-radius:99px;padding:6px 12px;min-height:34px;font-size:14px}.chips button.on{background:var(--acc);color:var(--ink-on-acc);border-color:var(--acc)}
 .items .it{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;margin:6px 0}
+.items .swipe{position:relative;margin:6px 0;border-radius:12px;overflow:hidden}
+.items .swipe .it{margin:0;background:var(--card);position:relative;touch-action:pan-y}
+.swbg{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#3a1517;color:var(--bad);opacity:0}
+.swbg svg{width:22px;height:22px;transition:transform .15s}.swbg.ready{background:var(--bad);color:#fff}.swbg.ready svg{transform:scale(1.25)}
 .modal{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}.mbox{background:var(--card);border:1px solid var(--acc);border-radius:var(--r);padding:18px;width:100%;max-width:380px}
 .upds{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;gap:12px;animation:ufi .25s ease}
 .ulogo{position:relative;width:136px;height:136px;margin-bottom:10px}.ulogo img{position:absolute;inset:16px;width:104px;height:104px;border-radius:24px}

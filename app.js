@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.39';
+export const APP_VERSION = '1.5.40';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -123,13 +123,30 @@ function download(name, text, mime = 'text/plain') {
 }
 
 // ---------- estado de navegación ----------
-const UI = { tab: 'hoy', day: null, open: {}, review: null, proposal: null, editPlan: null };
+const UI = { tab: 'hoy', day: null, open: {}, review: null, proposal: null, editPlan: null, draft: {}, skipCap: null };
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-1 0v14H9V6m1 4v6m4-6v6"/></svg>';
+// Borrador del panel Modificar: lo que el usuario tocó (cantidades, quitados, cambios de alimento) y aún no guardó.
+// Sin esto, cualquier render() (p. ej. al "+ Añadir") volvía a dibujar el panel desde lo guardado y reaparecía lo quitado.
+function captureDrafts() {
+  document.querySelectorAll('.items[data-k]').forEach(box => {
+    const k = box.dataset.k; if (!k.startsWith(UI.day) || UI.skipCap === k) return;
+    const rows = [...box.querySelectorAll('.swipe')]; const out = {}; let any = false;
+    rows.forEach((r, i) => {
+      const q = r.querySelector('[data-f="qty"]'), f = r.querySelector('[data-f="food"]'); const gone = r.classList.contains('gone');
+      const dq = q && q.value !== q.dataset.o, df = f && f.value !== f.dataset.o;
+      if (gone || dq || df) { out[i] = { gone, qty: q ? q.value : undefined, food: f ? f.value : undefined }; any = true; }
+    });
+    if (any) UI.draft[k] = { n: rows.length, rows: out }; else delete UI.draft[k];
+  });
+}
+const dropDraft = k => { delete UI.draft[k]; UI.skipCap = k; };
 
 function render() {
   const T = todayStr(); if (!UI.day) UI.day = T;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
   const f = { hoy: vHoy, semana: vSemana, plan: vPlan, datos: vDatos, ajustes: vAjustes }[UI.tab];
   const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
+  captureDrafts();
   const before = {}; document.querySelectorAll('[data-meal]').forEach(el => before[el.dataset.meal] = el.getBoundingClientRect().top);
   $('#app').innerHTML = banner + f(T);
   animate();
@@ -318,15 +335,17 @@ function vHoy(T) {
         ? `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `<div>${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}</div>${it.role === 'carb' ? hintFor(m, it.foodId) : ''}`).join('')}${hintRest()}</div>`
         : `<div class="sub">${m.actualItems.filter(it => it.qty > 0).map(it => `${qtyLabel(it)} ${esc(S.foods[it.foodId]?.name.split(',')[0].toLowerCase())}`).join(' · ')}</div>`}<div class="row sp" style="margin-top:6px"><span class="row" style="gap:6px">${tag}${cdn}</span><button class="mod" data-a="openm" data-m="${m.id}">${open ? 'Cerrar' : 'Modificar'}</button></div></div></div>`;
     if (open) {
-      h += `<div class="items" style="margin-top:10px">`;
+      const dr = UI.draft[d + m.id], drok = dr && dr.n === m.actualItems.length;
+      h += `<div class="items" data-k="${d + m.id}" style="margin-top:10px">`;
       m.actualItems.forEach((it, i) => {
+        const x = drok && dr.rows[i] || {}; const fid = x.food || it.foodId, qv = x.qty !== undefined ? x.qty : it.qty, gone = !!x.gone;
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
-        const sel = pl?.choices ? `<select data-f="food" data-i="${i}">${pl.choices.map(c => `<option value="${c}" ${c === it.foodId ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
+        const sel = pl?.choices ? `<select data-f="food" data-i="${i}" data-o="${it.foodId}">${pl.choices.map(c => `<option value="${c}" ${c === fid ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (ML.includes(it.foodId) ? 50 : it.foodId === 'pb2' ? 6 : 5);
-        h += `<div class="it swipe" data-i="${i}" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" value="${it.qty}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div>`;
+        h += `<div class="swipe${gone ? ' gone' : ''}" data-i="${i}"${gone ? ' style="display:none"' : ''}><div class="swbg" aria-hidden="true">${TRASH}${TRASH}</div><div class="it swc" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" data-o="${it.qty}" value="${qv}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div></div>`;
       });
       { const lh = d <= T && !dv.close ? E.lastMealCarbHint(S, d, T, { asPending: m.id }) : null; h += `<div class="livehint" style="text-align:right;margin:4px 0 8px">${lh && lh.mealId === m.id ? hintBlock(lh) : ''}</div>`; }
-      h += `<div class="sub">Deslizá un ingrediente a la izquierda para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
+      h += `<div class="sub">Deslizá un ingrediente hacia cualquier lado para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
         <div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name)).map(([id, f]) => `<option value="${id}">${esc(f.name)}</option>`).join('')}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${unitLbl(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
         <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button></div></div>`;
     }
@@ -543,8 +562,8 @@ document.addEventListener('click', async e => {
   const a = el.dataset.a, T = todayStr(), d = UI.day;
   const dv = () => E.dayView(S, d, T);
   switch (a) {
-    case 'day': { const n = E.addDays(d, +el.dataset.d); if (n <= T) { UI.day = n; render(); } break; }
-    case 'gotoday': UI.day = el.dataset.d; render(); break;
+    case 'day': { const n = E.addDays(d, +el.dataset.d); if (n <= T) { UI.day = n; UI.draft = {}; render(); } break; }
+    case 'gotoday': UI.day = el.dataset.d; UI.draft = {}; render(); break;
     case 'close': {
       const cd = el.dataset.d, ans = el.dataset.v;
       if (el.dataset.manual) { const v = E.dayView(S, cd, T); const list = v.meals.filter(m => ['pending', 'assumed'].includes(m.status)).map(m => ['MEAL_SET', { date: cd, mealId: m.id, status: 'skipped' }]); list.push(['DAY_CLOSE', { date: cd, answer: 'with_changes' }]); await emitMany(list); }
@@ -564,12 +583,18 @@ document.addEventListener('click', async e => {
     case 'addItem': { const mid = el.dataset.m; const fid = $('#addf-' + mid).value, q = parseFloat(($('#addq-' + mid).value || '').replace(',', '.'));
       const fu = foodUnit(fid), isU = fu !== 'g';
       if (!(q > 0)) { toast(isU ? `Indicá cuántos (${fu})` : 'Indicá los gramos'); break; }
-      const m = dv().meals.find(x => x.id === mid); const items = m.actualItems.map(i => ({ ...i }));
+      const m = dv().meals.find(x => x.id === mid);
+      // Se parte de lo que hay en el panel (cantidades, quitados y cambios sin guardar), no de lo último guardado:
+      // antes, al añadir, reaparecía lo que habías quitado y se perdían las cantidades tocadas.
+      const cur = panelItems(el.closest('.card'), m);
+      const items = cur.filter((it, i) => it.qty > 0 || m.actualItems[i].qty === 0);   // quitados fuera; opciones en 0 del plan se conservan
       const zero = items.find(i => i.foodId === fid && i.qty === 0);   // opción en 0 del plan (p. ej. natilla): se completa en vez de duplicar
       if (zero) zero.qty = q; else items.push({ foodId: fid, qty: q, unit: isU ? 'u' : 'g', role: 'extra' });
-      await emit('MEAL_SET', { date: d, mealId: mid, status: 'edited', items }); UI.open[d + mid] = true; render(); toast('Añadido'); break; }
+      const changedFood = m.status === 'replaced' || cur.some((it, i) => it.foodId !== m.actualItems[i].foodId);
+      const k = d + mid; dropDraft(k);
+      await emit('MEAL_SET', { date: d, mealId: mid, status: changedFood ? 'replaced' : 'edited', items }); UI.open[k] = true; render(); UI.skipCap = null; toast('Añadido'); break; }
     case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(String(inp.value).replace(',', '.')) || 0) + parseFloat(el.dataset.s), 2)); liveHint(el.closest('[data-meal]')); break; }
-    case 'openm': UI.open[d + el.dataset.m] = !UI.open[d + el.dataset.m]; render(); break;
+    case 'openm': { const k = d + el.dataset.m; UI.open[k] = !UI.open[k]; if (!UI.open[k]) dropDraft(k); render(); UI.skipCap = null; break; }
     case 'saveMeal': {
       const m = dv().meals.find(x => x.id === el.dataset.m); const card = el.closest('.card');
       const items = m.actualItems.map((it, i) => ({ ...it }));
@@ -577,12 +602,13 @@ document.addEventListener('click', async e => {
       card.querySelectorAll('.swipe.gone').forEach(r => { items[+r.dataset.i].qty = 0; });
       const changedFood = m.status === 'replaced' || items.some((it, i) => it.foodId !== m.actualItems[i].foodId);
       const kept = items.filter(it => it.qty > 0);
+      dropDraft(d + m.id);
       if (!kept.length) { UI.open[d + m.id] = false; await emit('MEAL_SET', { date: d, mealId: m.id, status: 'skipped' }); toast('Sin ingredientes: marcada como no comida'); break; }
       items.length = 0; items.push(...kept);
       UI.open[d + m.id] = false;
-      await emit('MEAL_SET', { date: d, mealId: m.id, status: changedFood ? 'replaced' : 'edited', items }); toast('Guardado'); break; }
-    case 'skipMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); break;
-    case 'resetMeal': UI.open[d + el.dataset.m] = false; await emit('MEAL_RESET', { date: d, mealId: el.dataset.m }); break;
+      await emit('MEAL_SET', { date: d, mealId: m.id, status: changedFood ? 'replaced' : 'edited', items }); UI.skipCap = null; toast('Guardado'); break; }
+    case 'skipMeal': UI.open[d + el.dataset.m] = false; dropDraft(d + el.dataset.m); await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); UI.skipCap = null; break;
+    case 'resetMeal': UI.open[d + el.dataset.m] = false; dropDraft(d + el.dataset.m); await emit('MEAL_RESET', { date: d, mealId: el.dataset.m }); UI.skipCap = null; break;
     case 'acceptRedist': { const s = E.redistributionSuggestion(S, d, T); await emitMany(s.sameDay.map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: false }])); toast('Redistribución aplicada'); break; }
     case 'acceptBank': { const s = E.redistributionSuggestion(S, d, T); await emitMany(({ pb: s.bankPb, egg: s.bankEgg }[el.dataset.o] || s.bankChanges).map(c => ['OVERRIDE', { date: d, mealId: c.mealId, foodId: c.foodId, qty: c.qty, kcal: c.kcal, fromBank: true }])); toast('Saldo aplicado'); break; }
     case 'ignore': el.closest('.card').remove(); break;
@@ -686,15 +712,20 @@ document.addEventListener('change', async e => {
   }
 });
 
-// ---------- deslizar para quitar ingrediente ----------
+// ---------- deslizar (a cualquier lado) para quitar ingrediente ----------
 let SW = null;
-document.addEventListener('touchstart', e => { const r = e.target.closest('.swipe'); if (!r || e.target.closest('input,select,button')) return; SW = { r, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null }; }, { passive: true });
+document.addEventListener('touchstart', e => { const r = e.target.closest('.swipe'); if (!r || e.target.closest('input,select,button')) return; SW = { r, c: r.querySelector('.swc'), bg: r.querySelector('.swbg'), x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null }; }, { passive: true });
 document.addEventListener('touchmove', e => { if (!SW) return; const t = e.touches[0]; const dx = t.clientX - SW.x, dy = t.clientY - SW.y;
   if (SW.lock === null && Math.abs(dx) + Math.abs(dy) > 8) SW.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-  if (SW.lock !== 'x') return; SW.dx = Math.min(0, dx); SW.r.style.transition = 'none'; SW.r.style.transform = `translateX(${SW.dx}px)`; SW.r.style.opacity = String(1 + SW.dx / 300); }, { passive: true });
-document.addEventListener('touchend', () => { if (!SW) return; const { r, dx } = SW; SW = null; r.style.transition = 'transform .25s, opacity .25s';
-  if (dx < -90) { r.style.transform = 'translateX(-110%)'; r.style.opacity = '0'; setTimeout(() => { r.classList.add('gone'); r.style.display = 'none'; liveHint(r.closest('[data-meal]')); }, 250); toast('Ingrediente quitado · tocá Guardar'); }
-  else { r.style.transform = ''; r.style.opacity = ''; } });
+  if (SW.lock !== 'x') return; SW.dx = dx; SW.c.style.transition = 'none'; SW.c.style.transform = `translateX(${dx}px)`;
+  SW.bg.style.transition = 'none'; SW.bg.style.opacity = String(Math.min(1, Math.abs(dx) / 50)); SW.bg.classList.toggle('ready', Math.abs(dx) > 90); }, { passive: true });
+document.addEventListener('touchend', () => { if (!SW) return; const { r, c, bg, dx } = SW; SW = null; c.style.transition = 'transform .2s'; bg.style.transition = 'opacity .2s';
+  if (Math.abs(dx) > 90) {
+    c.style.transform = `translateX(${dx < 0 ? -110 : 110}%)`;
+    setTimeout(() => { r.style.height = r.offsetHeight + 'px'; r.style.transition = 'height .18s, margin .18s'; requestAnimationFrame(() => { r.style.height = '0'; r.style.margin = '0'; }); }, 180);
+    setTimeout(() => { r.classList.add('gone'); r.style.display = 'none'; liveHint(r.closest('[data-meal]')); }, 380);
+    toast('Ingrediente quitado · tocá Guardar'); }
+  else { c.style.transform = ''; bg.style.opacity = '0'; bg.classList.remove('ready'); } });
 
 // ---------- arranque ----------
 async function migrate() {
