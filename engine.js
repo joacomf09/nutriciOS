@@ -49,6 +49,8 @@ export const DEFAULT_FOODS = {
   pestorosso:{ name: 'Pesto rosso con tomates secados al sol Gallo', per100: { kcal: 364, p: 4.2, c: 9.3, f: 34 }, src: 'etiqueta (tarro, 1 porción = 38 g)' },
   yogfagsl: { name: 'Yogur natural sin lactosa La Fageda (pote 125 g)', per100: { kcal: 78, p: 5.4, c: 6.4, f: 3.4 }, unitG: 125, unitName: 'pote', src: 'FatSecret (La Fageda yogur sin lactosa, por 100 g; no es etiqueta del envase)' },
   miel:     { name: 'Miel de naranjo Hacendado', per100: { kcal: 333, p: 0, c: 83, f: 0 }, src: 'etiqueta (bote 500 g; proteínas <0,5 g)' },
+  polloasado:{ name: 'Pollo asado con piel (cocido)', per100: { kcal: 239, p: 27.3, c: 0, f: 13.6 }, src: 'USDA (pollo, carne con piel, asado; peso cocido, no es etiqueta)' },
+  papaasada:{ name: 'Papa / patata asada (cocida)', per100: { kcal: 93, p: 2.5, c: 21.2, f: 0.1 }, src: 'USDA (papa horneada con piel; peso cocido; sin aceite añadido, no es etiqueta)' },
   aguacate: { name: 'Aguacate', per100: { kcal: 160, p: 2, c: 9, f: 15 }, src: 'USDA' },
 };
 
