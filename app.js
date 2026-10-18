@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.43';
+export const APP_VERSION = '1.5.44';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -809,6 +809,19 @@ async function migrate() {
       list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: cur, reason: 'Intra-entreno desde hoy: 50 g dextrosa + 100 ml jugo de naranja' }]);
     }
     list.push(['SETTINGS', { mig1540: true }]);
+    await emitMany(list);
+  }
+  // 1.5.44: pan 5 semillas Hacendado (2 rebanadas de 50 g) por defecto en el desayuno DESDE MAÑANA; días anteriores sin cambios
+  if (!S.settings.mig1544) {
+    const from = E.addDays(T, 1), base = E.versionAt(S, from);
+    const cur = JSON.parse(JSON.stringify(base.meals));
+    const des = cur.find(m => m.id === 'desayuno');
+    const list = [];
+    if (des && des.items.some(it => it.foodId === 'pan')) {
+      des.items = des.items.map(it => it.foodId === 'pan' ? { foodId: 'pan5s', qty: 2, unit: 'u', role: 'fixed' } : it);
+      list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: from, meals: cur, reason: 'Desayuno: pan 5 semillas Hacendado (2 rebanadas de 50 g) en lugar del pan integral chico' }]);
+    }
+    list.push(['SETTINGS', { mig1544: true }]);
     await emitMany(list);
   }
 }
