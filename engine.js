@@ -35,7 +35,7 @@ export const DEFAULT_FOODS = {
   natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
   tomate:   { name: 'Salsa de tomate (promedio Hacendado frito + Solís sofrito)', per100: { kcal: 92, p: 1.15, c: 10.8, f: 4.65 }, src: 'etiqueta (promedio)' },
   grana:    { name: 'Queso rallado Grana Padano Hacendado', per100: { kcal: 398, p: 33, c: 0, f: 29 }, src: 'etiqueta' },
-  pina:     { name: 'Piña natural a rodajas Mercadona', per100: { kcal: 58, p: 0.5, c: 14, f: 0 }, src: 'etiqueta' },
+  pina:     { name: 'Piña natural a rodajas Mercadona: 1 rodaja (96,5 g)', per100: { kcal: 58, p: 0.5, c: 14, f: 0 }, unitG: 96.5, unitName: 'rodaja', src: 'etiqueta (58 kcal/100 g); rodaja = 579 g netos ÷ 6, a confirmar pesando' },
   limonada: { name: 'Jugo de limón light Don Simón', per100: { kcal: 23, p: 0.1, c: 5.6, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },
   dextrosa: { name: 'Dextrosa HSN (polvo)', per100: { kcal: 399, p: 0, c: 100, f: 0 }, src: 'etiqueta (1 dosificador 70 ml ≈ 50 g)' },
   naranjab: { name: 'Jugo de naranja sin azúcares añadidos Mercadona', per100: { kcal: 22, p: 0.3, c: 5, f: 0 }, src: 'etiqueta (por 100 ml, 1 ml ≈ 1 g)' },

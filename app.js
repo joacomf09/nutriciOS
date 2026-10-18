@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.42';
+export const APP_VERSION = '1.5.43';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -341,7 +341,7 @@ function vHoy(T) {
         const x = drok && dr.rows[i] || {}; const fid = x.food || it.foodId, qv = x.qty !== undefined ? x.qty : it.qty, gone = !!x.gone;
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
         const sel = pl?.choices ? `<select data-f="food" data-i="${i}" data-o="${it.foodId}">${pl.choices.map(c => `<option value="${c}" ${c === fid ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
-        const stp = it.unit === 'u' ? (S.foods[it.foodId].unitName === 'scoop' ? 0.5 : 1) : (ML.includes(it.foodId) ? 50 : it.foodId === 'pb2' ? 6 : 5);
+        const stp = it.unit === 'u' ? (['scoop', 'rodaja'].includes(S.foods[it.foodId].unitName) ? 0.5 : 1) : (ML.includes(it.foodId) ? 50 : it.foodId === 'pb2' ? 6 : 5);
         h += `<div class="swipe${gone ? ' gone' : ''}" data-i="${i}"${gone ? ' style="display:none"' : ''}><div class="swbg" aria-hidden="true">${TRASH}${TRASH}</div><div class="it swc" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" data-o="${it.qty}" value="${qv}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div></div>`;
       });
       { const lh = d <= T && !dv.close ? E.lastMealCarbHint(S, d, T, { asPending: m.id }) : null; h += `<div class="livehint" style="text-align:right;margin:4px 0 8px">${lh && lh.mealId === m.id ? hintBlock(lh) : ''}</div>`; }
@@ -733,7 +733,7 @@ async function migrate() {
   if (!S.settings.mig1536) { const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 100 }; if (params.calibrationWeeksMin === 2) params.calibrationWeeksMin = 1;
     await emitMany([['SETTINGS', { params }], ['SETTINGS', { mig1536: true }]]); }
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
-  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
+  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan', 'pina'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));
   // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
   const T = todayStr();
