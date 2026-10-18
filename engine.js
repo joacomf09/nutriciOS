@@ -51,6 +51,7 @@ export const DEFAULT_FOODS = {
   miel:     { name: 'Miel de naranjo Hacendado', per100: { kcal: 333, p: 0, c: 83, f: 0 }, src: 'etiqueta (bote 500 g; proteínas <0,5 g)' },
   polloasado:{ name: 'Pollo asado con piel (cocido)', per100: { kcal: 239, p: 27.3, c: 0, f: 13.6 }, src: 'USDA (pollo, carne con piel, asado; peso cocido, no es etiqueta)' },
   papaasada:{ name: 'Papa / patata asada (cocida)', per100: { kcal: 93, p: 2.5, c: 21.2, f: 0.1 }, src: 'USDA (papa horneada con piel; peso cocido; sin aceite añadido, no es etiqueta)' },
+  salmonrosado: { name: 'Salmón rosado salvaje Hacendado (crudo, ultracongelado)', per100: { kcal: 127, p: 20.5, c: 0, f: 4.4 }, src: 'estimación USDA (salmón rosado crudo, FDC 175138); la foto del envase no trae tabla nutricional' },
   atunlata: { name: 'Atún listado al natural Hacendado: 1 lata (270 g escurrido)', per100: { kcal: 100, p: 23, c: 0.7, f: 0.6 }, unitG: 270, unitName: 'lata', src: 'etiqueta (valores por 100 g escurrido; lata = 270 g escurridos de 385 g netos)' },
   pan5s:    { name: 'Pan 5 semillas Hacendado: 1 rebanada (50 g)', per100: { kcal: 280, p: 12, c: 39, f: 6.7 }, unitG: 50, unitName: 'rebanada', src: 'etiqueta (500 g netos ÷ 10 rebanadas útiles = 50 g; la etiqueta indica 13 unidades de ~30 g)' },
   mayolight: { name: 'Mayonesa light Hacendado', per100: { kcal: 292, p: 0.8, c: 4.7, f: 30 }, src: 'etiqueta' },
