@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.49';
+export const APP_VERSION = '1.5.50';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -748,7 +748,7 @@ document.addEventListener('change', async e => {
     const row = e.target.closest('.swipe') || e.target.closest('.it'), q = row && row.querySelector('[data-f="qty"]');
     const from = S.foods[e.target.dataset.prev || e.target.dataset.o], to = S.foods[e.target.value];
     if (q && from && to) { const k = e.target.dataset.r === 'carb' ? 'c' : 'p', a0 = from.per100[k], a1 = to.per100[k], v = parseFloat(String(q.value).replace(',', '.'));
-      if (a0 > 0 && a1 > 0 && v > 0) q.value = Math.max(5, Math.round(v * a0 / a1 / 5) * 5); }
+      if (a0 > 0 && a1 > 0 && v > 0) q.value = Math.max(10, Math.round(v * a0 / a1 / 10) * 10); }
     e.target.dataset.prev = e.target.value; liveHint(e.target.closest('[data-meal]')); return;
   }
   if (e.target.id?.startsWith('addf-')) { const q = $('#addq-' + e.target.id.slice(5)); if (q) q.placeholder = unitLbl(e.target.value); return; }
@@ -903,6 +903,19 @@ async function migrate() {
     }
     const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 200 };
     list.push(['SETTINGS', { params }], ['SETTINGS', { mig1546: true }]);
+    await emitMany(list);
+  }
+  // 1.5.50: redondeo a 10 g y palancas acordadas con el usuario (hoy y versiones futuras); escalón máx. 300
+  if (!S.settings.mig1550) {
+    const set = { mozza: { qty: 30, role: 'nego', min: 20, max: 40, step: 10 }, arroz: { step: 10 }, pasta: { qty: 110, step: 10 }, avena: { qty: 80, step: 10 },
+      tomate: { qty: 100 }, dextrosa: { role: 'carb', min: 30, max: 50, step: 10 } };
+    const list = [], dates = [T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)];
+    for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); let ch = false;
+      for (const m of meals) for (const it of m.items) { const s = set[it.foodId];
+        if (s && it.qty > 0 && (it.foodId !== 'mozza' || m.id === 'desayuno') && Object.keys(s).some(k => it[k] !== s[k])) { Object.assign(it, s); ch = true; } }
+      if (ch) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Redondeo a 10 g: pasta 110, avena 80, tomate 100, mozzarella 30 (palanca 20–40)' }]); }
+    const params = { ...JSON.parse(JSON.stringify(S.settings.params)), stepCapHyst: 300 };
+    list.push(['SETTINGS', { params }], ['SETTINGS', { mig1550: true }]);
     await emitMany(list);
   }
   // 1.5.49: opciones de proteína y carbo en almuerzo y cena (hoy y versiones futuras)
