@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.45';
+export const APP_VERSION = '1.5.46';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -195,7 +195,7 @@ function burst() {
   const msg = document.createElement('div'); msg.className = 'burstmsg'; msg.textContent = 'Día cerrado'; b.appendChild(msg);
   document.body.appendChild(b); setTimeout(() => b.remove(), 1600);
 }
-const MEAL_TIME = { desayuno: '08:00', almuerzo: '13:30', merienda: '17:00', intra: '19:15', post: '19:30', cena: '21:30' };
+const MEAL_TIME = { desayuno: '10:15', almuerzo: '15:00', merienda: '17:00', pre: '17:45', intra: '19:15', post: '19:30', cena: '20:45', recena: '22:30' };
 function countdown(time) {
   if (!time) return '';
   const [hh, mm] = time.split(':').map(Number); const now = new Date(); const diff = Math.round((hh * 60 + mm) - (now.getHours() * 60 + now.getMinutes()));
@@ -408,6 +408,7 @@ function vSemana(T) {
   const closed = days.filter(d => d.hasData).length;
   const wts = E.range(ws, 7).map(d => ({ d, w: S.weights.filter(x => x.date === d) }));
   let h = vPreview(T) + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
+  h += weekReport(ws, days, T);
   h += `<div class="card"><h3>1. Pesajes en ayunas</h3>`;
   for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="text" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
   h += `</div><div class="card"><h3>2. Sesiones realizadas</h3><div class="row"><div class="grow"><label>Fuerza</label><input id="sf" type="number" value="${rv.strength ?? ''}"></div><div class="grow"><label>Natación</label><input id="sn" type="number" value="${rv.swim ?? ''}"></div></div></div>
@@ -418,6 +419,42 @@ function vSemana(T) {
   if (p) h += vProposal(p, T);
   return h + vHistory(T);
 }
+// ---------- informe de la semana cerrada (1.5.46) ----------
+function weekReport(ws, days, T) {
+  const cl = days.filter(d => d.hasData && d.close && d.close.answer !== 'not_logged');
+  if (!cl.length) return '';
+  const avg = k => cl.reduce((s, d) => s + d.actual[k], 0) / cl.length;
+  const tgt = cl.reduce((s, d) => s + d.target.kcal, 0) / cl.length;
+  const ok = cl.filter(d => d.actual.kcal >= 0.98 * d.target.kcal && d.actual.kcal <= 1.05 * d.target.kcal).length;
+  const wd = E.range(ws, 7).map(d => S.weights.filter(x => x.date === d && !x.deleted)).filter(x => x.length);
+  const w0 = wd.length ? wd[0][0].kg : null, w1 = wd.length ? wd.at(-1).at(-1).kg : null;
+  const fats = wd.flat().filter(x => x.fatPct != null); const fat = fats.length ? fats.at(-1).fatPct : null;
+  const hist = E.calibrationHistory(S, T).find(x => x.weekStart === ws);
+  const skip = {}, add = {};
+  for (const d of cl) for (const m of d.meals) {
+    if (m.status === 'skipped') skip[m.name] = (skip[m.name] || 0) + 1;
+    const pl = new Set(m.planned.filter(i => i.qty > 0).map(i => i.foodId));
+    if (!['skipped', 'unknown'].includes(m.status)) for (const i of m.actualItems) if (i.qty > 0 && !pl.has(i.foodId)) add[i.foodId] = (add[i.foodId] || 0) + 1;
+  }
+  const top = (o, n) => Object.entries(o).sort((x, y) => y[1] - x[1]).slice(0, n);
+  const sk = top(skip, 2), ad = top(add, 3);
+  const row = (k, v) => `<tr><td>${k}</td><td class="r num">${v}</td></tr>`;
+  let h = `<div class="card"><h3>Informe de la semana</h3><table style="margin-top:6px">`;
+  h += row('Ingesta media · meta media', `${r0(avg('kcal'))} · ${r0(tgt)} kcal`);
+  h += row('P / C / G media', `${r0(avg('p'))} / ${r0(avg('c'))} / ${r0(avg('f'))} g`);
+  h += row('Días cumplidos (98–105 %)', `${ok}/${cl.length} ${ok ? '✅' : ''}`);
+  h += row('Peso inicio → fin', w0 == null ? '—' : `${E.round(w0, 2)} → ${E.round(w1, 2)} kg`);
+  if (hist && hist.slopeWeek != null) h += row('Tendencia', `${hist.slopeWeek >= 0 ? '+' : ''}${E.round(hist.slopeWeek, 2)} kg/sem`);
+  if (fat != null) h += row('% grasa (último)', `${E.round(fat, 1)} %`);
+  h += row('Días cerrados · pesajes', `${cl.length}/7 · ${wd.length}`);
+  if (hist && hist.implied != null) h += row('Gasto estimado', `${r0(hist.tdeePrev)} → <b>${r0(hist.tdee)}</b> kcal`) + row('Gasto según tus datos', `${r0(hist.implied)} kcal`);
+  h += `</table>`;
+  if (hist && hist.implied != null) h += `<div class="sub" style="margin-top:6px">El gasto se mueve solo una parte hacia lo que dicen tus datos (${r0(hist.implied)}), para no reaccionar a una semana rara.</div>`;
+  else if (hist) h += `<div class="sub" style="margin-top:6px">Semana no calibrable: ${esc(hist.reasons.join(', '))}.</div>`;
+  if (sk.length) h += `<div class="sub" style="margin-top:6px">Más omitida: ${sk.map(([n, c]) => `${esc(n)} (${c})`).join(', ')}.</div>`;
+  if (ad.length) h += `<div class="sub" style="margin-top:4px">Agregado más seguido: ${ad.map(([f, c]) => `${esc((S.foods[f]?.name || f).split(/[,:]/)[0])} (${c})`).join(', ')}.</div>`;
+  return h + `</div>`;
+}
 function vProposal(p, T) {
   const dec = S.decisions[p.id];
   let h = `<h2>Propuesta</h2><div class="card ${p.deltaKcal ? 'hi' : ''}">`;
@@ -425,7 +462,7 @@ function vProposal(p, T) {
   h += `<table style="margin-top:10px"><tr><th></th><th class="r">Antes</th><th class="r">Después</th></tr>
     <tr><td>Meta</td><td class="r num">${r0(p.before.kcal)}</td><td class="r num"><b>${r0(p.after.kcal)}</b> (${p.deltaKcal >= 0 ? '+' : ''}${r0(p.deltaKcal)})</td></tr>
     <tr><td>P / C / G</td><td class="r num">${r0(p.before.p)} / ${r0(p.before.c)} / ${r0(p.before.f)}</td><td class="r num">${r0(p.after.p)} / ${r0(p.after.c)} / ${r0(p.after.f)}</td></tr>
-    ${p.changes.map(c => `<tr><td>${esc(S.foods[c.foodId].name.split(',')[0])} · ${esc(mealName(c.mealId))}</td><td class="r num">${c.from}</td><td class="r num"><b>${c.qty}</b></td></tr>`).join('')}
+    ${[...new Set(p.changes.map(c => c.mealId))].map(mid => `<tr><td colspan="3" style="padding-top:8px"><b>${esc(mealName(mid))}</b></td></tr>` + p.changes.filter(c => c.mealId === mid).map(c => `<tr><td style="padding-left:12px">${esc(S.foods[c.foodId].name.split(/[,:]/)[0])}</td><td class="r num">${c.from}${c.unit === 'u' ? '' : ' g'}</td><td class="r num"><b>${c.qty}${c.unit === 'u' ? '' : ' g'}</b></td></tr>`).join('')).join('')}
     ${p.phaseChange ? `<tr><td>Fase</td><td class="r">${E.PHASE_LABEL[E.phaseAt(S.settings, T)]}</td><td class="r"><b>${E.PHASE_LABEL[p.phaseChange]}</b></td></tr>` : ''}</table>`;
   if (p.warnings.length) h += p.warnings.map(w => `<div class="sub" style="color:var(--warn);margin-top:6px">⚠︎ ${esc(w)}</div>`).join('');
   if (dec) h += `<div class="sub" style="margin-top:10px">Decisión: <b>${dec.decision === 'approved' ? 'aprobada' : 'rechazada'}</b>.</div>`;
@@ -824,6 +861,27 @@ async function migrate() {
     list.push(['SETTINGS', { mig1544: true }]);
     await emitMany(list);
   }
+  // 1.5.46: plan nuevo desde MAÑANA con horarios reales (pedido del usuario el 19-10): meta ≈ 3.250; primer paso del motor ±200
+  if (!S.settings.mig1546) {
+    const from = E.addDays(T, 1), list = [];
+    const I = (foodId, qty, unit = 'g', x = {}) => ({ foodId, qty, unit, role: 'fixed', ...x });
+    const C = (foodId, qty, min, max) => ({ foodId, qty, unit: 'g', role: 'carb', min, max, step: 5 });
+    const ok = ['pan5s', 'huevo', 'guacamole', 'mozza', 'psyllium', 'naranjab', 'pollo', 'arroz', 'lentejas', 'aceite', 'natilla', 'caseina', 'avena', 'banana', 'pb2', 'dextrosa', 'carne', 'pasta', 'tomate', 'kiwi'].every(f => S.foods[f]);
+    if (ok) {
+      const meals = [
+        { id: 'desayuno', name: 'Desayuno', items: [I('pan5s', 2, 'u'), { foodId: 'huevo', qty: 3, unit: 'u', role: 'nego', min: 2, max: 5, step: 1 }, I('guacamole', 29), I('mozza', 28.6), I('psyllium', 1, 'u'), I('naranjab', 100)] },
+        { id: 'almuerzo', name: 'Almuerzo', items: [I('pollo', 300), C('arroz', 100, 40, 160), I('lentejas', 100), I('aceite', 5), I('natilla', 1, 'u')] },
+        { id: 'pre', name: 'Pre-entreno', items: [I('caseina', 1, 'u'), C('avena', 75, 30, 120), I('banana', 1, 'u'), I('pb2', 12)] },
+        { id: 'intra', name: 'Intra-entreno', items: [I('dextrosa', 40), I('naranjab', 100)] },
+        { id: 'cena', name: 'Cena (post-entreno)', items: [I('carne', 250, 'g', { choices: ['carne', 'salmon', 'merluza', 'pollo'] }), C('pasta', 105, 40, 160), I('tomate', 90), I('natilla', 0, 'u')] },
+        { id: 'recena', name: 'Recena (opcional)', items: [I('pb2', 0), I('avena', 0), I('caseina', 0, 'u'), I('kiwi', 0, 'u'), I('psyllium', 0, 'u'), I('natilla', 0, 'u')] } ];
+      list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: from, meals, reason: 'Plan 1.6: horarios reales, pre-entreno + intra, recena opcional; meta ≈ 3.250' }]);
+    }
+    const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 200 };
+    list.push(['SETTINGS', { params }], ['SETTINGS', { mig1546: true }]);
+    await emitMany(list);
+  }
+
 }
 async function boot() {
   idb = await openDB();

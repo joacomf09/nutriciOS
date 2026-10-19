@@ -229,7 +229,7 @@ function distribute(foods, meals, deltaKcal, roles, mealFilter = () => true) {
     }
     if (!moved) break;
   }
-  return { changes: [...changes].map(([s, qty]) => ({ mealId: s.m.id, foodId: s.it.foodId, from: s.it.qty, qty })), remaining };
+  return { changes: [...changes].map(([s, qty]) => ({ mealId: s.m.id, foodId: s.it.foodId, unit: s.it.unit, from: s.it.qty, qty })), remaining };
 }
 
 // Palanca extra (calorías fáciles): mantequilla de maní en polvo, en pasos de 12 g, hasta 36 g por comida.
