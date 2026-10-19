@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.48';
+export const APP_VERSION = '1.5.49';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -354,7 +354,7 @@ function vHoy(T) {
       m.actualItems.forEach((it, i) => {
         const x = drok && dr.rows[i] || {}; const fid = x.food || it.foodId, qv = x.qty !== undefined ? x.qty : it.qty, gone = !!x.gone;
         const pl = m.planned.find(p => p.choices ? p.choices.includes(it.foodId) : p.foodId === it.foodId);
-        const sel = pl?.choices ? `<select data-f="food" data-i="${i}" data-o="${it.foodId}">${pl.choices.map(c => `<option value="${c}" ${c === fid ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
+        const sel = pl?.choices ? `<select data-f="food" data-i="${i}" data-o="${it.foodId}" data-r="${pl.role || ''}">${pl.choices.map(c => `<option value="${c}" ${c === fid ? 'selected' : ''}>${esc(S.foods[c].name)}</option>`).join('')}</select>` : `<span>${esc(S.foods[it.foodId].name)}</span>`;
         const stp = it.unit === 'u' ? (['scoop', 'rodaja'].includes(S.foods[it.foodId].unitName) ? 0.5 : 1) : (ML.includes(it.foodId) ? 50 : it.foodId === 'pb2' ? 6 : 5);
         h += `<div class="swipe${gone ? ' gone' : ''}" data-i="${i}"${gone ? ' style="display:none"' : ''}><div class="swbg" aria-hidden="true">${TRASH}${TRASH}</div><div class="it swc" style="grid-template-columns:1fr auto">${sel}<div class="step"><button type="button" data-a="stp" data-i="${i}" data-s="${-stp}" aria-label="Menos">−</button><input type="text" inputmode="decimal" data-f="qty" data-i="${i}" data-o="${it.qty}" value="${qv}" step="${stp}" aria-label="Cantidad"><button type="button" data-a="stp" data-i="${i}" data-s="${stp}" aria-label="Más">+</button></div></div></div>`;
       });
@@ -743,6 +743,14 @@ function confirmWipe() { if (Date.now() - wipeArmed < 4000) return true; wipeArm
 function backup() { download(`nutricios-respaldo-${todayStr()}.json`, JSON.stringify({ app: 'nutricios', schema: 1, calc: E.CALC_VERSION, exported: new Date().toISOString(), events: EVENTS }), 'application/json'); }
 
 document.addEventListener('change', async e => {
+  // 1.5.49: al cambiar alimento en Modificar, ajustar gramos para mantener carbos (carbos) o proteína (proteínas)
+  if (e.target.matches('select[data-f="food"]')) {
+    const row = e.target.closest('.swipe') || e.target.closest('.it'), q = row && row.querySelector('[data-f="qty"]');
+    const from = S.foods[e.target.dataset.prev || e.target.dataset.o], to = S.foods[e.target.value];
+    if (q && from && to) { const k = e.target.dataset.r === 'carb' ? 'c' : 'p', a0 = from.per100[k], a1 = to.per100[k], v = parseFloat(String(q.value).replace(',', '.'));
+      if (a0 > 0 && a1 > 0 && v > 0) q.value = Math.max(5, Math.round(v * a0 / a1 / 5) * 5); }
+    e.target.dataset.prev = e.target.value; liveHint(e.target.closest('[data-meal]')); return;
+  }
   if (e.target.id?.startsWith('addf-')) { const q = $('#addq-' + e.target.id.slice(5)); if (q) q.placeholder = unitLbl(e.target.value); return; }
   if (e.target.id === 'imp') {
     const f = e.target.files[0]; if (!f) return;
@@ -895,6 +903,20 @@ async function migrate() {
     }
     const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 200 };
     list.push(['SETTINGS', { params }], ['SETTINGS', { mig1546: true }]);
+    await emitMany(list);
+  }
+  // 1.5.49: opciones de proteína y carbo en almuerzo y cena (hoy y versiones futuras)
+  if (!S.settings.mig1549) {
+    const P = ['pollo', 'carne', 'salmon', 'salmonrosado', 'merluza', 'atun', 'atunlata', 'burger', 'polloasado'].filter(f => S.foods[f]);
+    const Cc = ['arroz', 'pasta', 'fusilli', 'papaasada'].filter(f => S.foods[f]);
+    const patch = v => { const meals = JSON.parse(JSON.stringify(v.meals)); let ch = false;
+      for (const m of meals) if (m.id === 'almuerzo' || m.id === 'cena') for (const it of m.items) {
+        if (P.includes(it.foodId) && it.unit === 'g' && it.qty > 0) { it.choices = [it.foodId, ...P.filter(f => f !== it.foodId)]; ch = true; }
+        if (Cc.includes(it.foodId) && it.role === 'carb') { it.choices = [it.foodId, ...Cc.filter(f => f !== it.foodId)]; ch = true; } }
+      return ch ? meals : null; };
+    const list = [], dates = [T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)];
+    for (const d of dates) { const m = patch(E.versionAt(S, d)); if (m) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals: m, reason: 'Opciones de proteína y carbo en almuerzo y cena' }]); }
+    list.push(['SETTINGS', { mig1549: true }]);
     await emitMany(list);
   }
   // 1.5.47: el usuario pidió que el plan 1.6 rija desde HOY (19-10)
