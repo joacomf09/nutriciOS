@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.51';
+export const APP_VERSION = '1.6.0';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -179,7 +179,7 @@ function closeSummary(date) {
   const sub = ok ? '' : diff < 0 ? `<div class="sub">Te faltaron <b>${r0(-diff)} kcal</b>: se suman al saldo de la semana (se recuperan hasta +300 por día).</div>` : `<div class="sub">Te pasaste <b>${r0(diff)} kcal</b>: se descuentan del saldo de la semana.</div>`;
   const d = document.createElement('div'); d.id = 'closesum'; d.className = 'modal';
   d.innerHTML = `<div class="mbox cs"><div class="eyebrow">Día cerrado · ${dLabel(date)}</div>
-    <div class="csring"><svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="Anillos del día">${ring(62, a.kcal / tg.kcal, 'var(--acc)', 0)}${ring(50, a.p / tg.p, 'var(--p)', .15)}${ring(38, a.c / tg.c, 'var(--c)', .3)}${ring(26, a.f / tg.f, 'var(--f)', .45)}</svg>${ok ? '<div class="gstamp">CUMPLIDO</div>' : ''}</div>
+    <div class="csring"><svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="Anillos del día">${ring(62, a.kcal / tg.kcal, 'var(--kc)', 0)}${ring(50, a.p / tg.p, 'var(--p)', .15)}${ring(38, a.c / tg.c, 'var(--c)', .3)}${ring(26, a.f / tg.f, 'var(--f)', .45)}</svg>${ok ? '<div class="gstamp">CUMPLIDO</div>' : ''}</div>
     <p class="cst">${title}</p>${sub}
     <div class="sub"><span class="num" style="font-size:20px;color:var(--ink)">${r0(a.kcal)}</span> / ${r0(tg.kcal)} kcal · ${(pct * 100).toFixed(1).replace('.', ',')} %</div>
     <div class="csm"><div><b style="color:var(--p)">${r0(a.p)}</b><span>/${r0(tg.p)} prot</span></div><div><b style="color:var(--c)">${r0(a.c)}</b><span>/${r0(tg.c)} carb</span></div><div><b style="color:var(--f)">${r0(a.f)}</b><span>/${r0(tg.f)} grasa</span></div></div>
@@ -332,7 +332,7 @@ function scanStop() { cancelAnimationFrame(SCAN.raf); try { SCAN.ctrl?.stop(); }
 async function scanStart() {
   scanStop();
   const m = document.createElement('div'); m.id = 'scanmodal'; m.className = 'modal';
-  m.innerHTML = '<div class="mbox"><h3>Apuntá al código de barras</h3><video id="scanv" playsinline muted style="width:100%;border-radius:12px;background:#000;margin-top:8px"></video><div class="sub" id="scanmsg" style="margin-top:6px">Abriendo cámara…</div><button class="s" data-a="scanStop" style="margin-top:10px;width:100%">Cancelar</button></div>';
+  m.innerHTML = '<div class="mbox"><h3>Apuntá al código de barras</h3><video id="scanv" playsinline muted style="width:100%;border-radius:2px;background:#000;margin-top:8px"></video><div class="sub" id="scanmsg" style="margin-top:6px">Abriendo cámara…</div><button class="s" data-a="scanStop" style="margin-top:10px;width:100%">Cancelar</button></div>';
   document.body.appendChild(m);
   const v = document.getElementById('scanv'), done = code => { scanStop(); offLookup(code); };
   try {
@@ -372,9 +372,9 @@ function vHoy(T) {
   const off_ = st => !['confirmed', 'edited', 'replaced'].includes(st);
     const E_ = dv.eatenConfirmed, TG = dv.target;
   const arc = (r, f, col) => { const C = 2 * Math.PI * r; return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-opacity=".18" stroke-width="9"/><circle cx="70" cy="70" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C} ${C}" class="tr" data-k="ring${r}" data-p="strokeDashoffset" data-from="${C}" data-to="${C * (1 - Math.min(1, f || 0))}" transform="rotate(-90 70 70)"/>`; };
-  const ring = `<svg class="ring" width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Progreso de calorías y macros">${arc(62, E_.kcal / TG.kcal, 'var(--acc)')}${arc(50, E_.p / TG.p, 'var(--p)')}${arc(38, E_.c / TG.c, 'var(--c)')}${arc(26, E_.f / TG.f, 'var(--f)')}</svg>`;
+  const ring = `<svg class="ring" width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Progreso de calorías y macros">${arc(62, E_.kcal / TG.kcal, 'var(--kc)')}${arc(50, E_.p / TG.p, 'var(--p)')}${arc(38, E_.c / TG.c, 'var(--c)')}${arc(26, E_.f / TG.f, 'var(--f)')}</svg>`;
   const tile = (lab, a, b, col) => `<div><div class="sub" style="font-size:12px">${lab}</div><div class="cond" style="font-size:22px;font-weight:700;color:${col}"><span data-count="${E.round(a)}" data-ck="${lab}">${r0(a)}</span><span class="sub" style="font-size:13px"> /${r0(b)}</span></div></div>`;
-  h += `<div class="card"><div class="row" style="gap:14px;align-items:center">${ring}<div class="grow" style="display:grid;gap:6px">${tile('KCAL', E_.kcal, TG.kcal, 'var(--acc)')}${tile('PROT g', E_.p, TG.p, 'var(--p)')}${tile('CARB g', E_.c, TG.c, 'var(--c)')}${tile('GRASA g', E_.f, TG.f, 'var(--f)')}</div></div>
+  h += `<div class="card"><div class="row" style="gap:14px;align-items:center">${ring}<div class="grow" style="display:grid;gap:6px">${tile('KCAL', E_.kcal, TG.kcal, 'var(--kc)')}${tile('PROT g', E_.p, TG.p, 'var(--p)')}${tile('CARB g', E_.c, TG.c, 'var(--c)')}${tile('GRASA g', E_.f, TG.f, 'var(--f)')}</div></div>
     <div class="sub" style="margin-top:8px">Proyectado si comés lo pendiente: ${r0(dv.actual.kcal)} kcal</div>`;
   // gráfico por comidas: barras apiladas por macro (kcal), pendientes atenuadas
   { const ms = dv.meals.map(m => { const t = ['skipped', 'unknown'].includes(m.status) ? m.plannedTot : m.actualTot; return { m, t, done: !off_(m.status), skip: ['skipped', 'unknown'].includes(m.status) }; });
