@@ -180,8 +180,8 @@ t('pista: merienda omitida y solo queda post-gym → añadir cacahuete en polvo 
   const ev = conf(['desayuno', 'almuerzo', 'cena'], [{ type: 'MEAL_SET', payload: { date: D, mealId: 'merienda', status: 'skipped' } }]);
   const h = E.lastMealCarbHint(E.replay(ev), D, D);
   assert.equal(h.mealId, 'post'); assert.ok(h.adds); assert.equal(h.dir, 1);
-  assert.deepEqual(h.items.map(x => x.foodId), ['pb2', 'avena']); assert.equal(h.items[0].qty, 36);
-  assert.ok(h.items[1].qty % 5 === 0 && h.items[1].qty <= 120);
+  assert.deepEqual(h.items.map(x => x.foodId), ['pb2', 'caseina', 'avena']); assert.equal(h.items[0].qty, 36);
+  assert.ok(h.items[1].foodId === 'caseina' && h.items[2].qty % 10 === 0 && h.items[2].qty <= 120);
   assert.ok(h.covered <= h.delta + 20, `cubre ${h.covered} de ${h.delta}`);
 });
 t('pista: falta poco y solo queda post-gym → solo cacahuete en polvo', () => {

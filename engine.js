@@ -301,7 +301,9 @@ export function lastMealCarbHint(state, date, today, opts = {}) {
     let rem = delta;
     const has = id => last.planned.filter(it => it.foodId === id).reduce((a, it) => a + (it.unit === 'u' ? it.qty * (state.foods[id]?.unitG || 0) : it.qty), 0);
     if (state.foods.pb2) { const per = kc('pb2', 12); const n = Math.min(Math.floor(Math.max(0, 36 - has('pb2')) / 12), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'pb2', unit: 'g', from: 0, qty: 12 * n, dq: 12 * n, kcal: round(kc('pb2', 12 * n)), add: true, atLimit: null }); rem -= kc('pb2', 12 * n); } }
-    if (state.foods.avena && rem > P.redistTol) { const per = kc('avena', 5); const n = Math.min(Math.floor(Math.max(0, 120 - has('avena')) / 5), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'avena', unit: 'g', from: 0, qty: 5 * n, dq: 5 * n, kcal: round(kc('avena', 5 * n)), add: true, atLimit: null }); rem -= kc('avena', 5 * n); } }
+    // 1.5.51: caseína (medias medidas, hasta 1 scoop en total en esa comida) entre el cacahuete y la avena
+    if (state.foods.caseina && rem > P.redistTol) { const g = state.foods.caseina.unitG || 33, per = kc('caseina', g / 2); const n = Math.min(Math.floor(Math.max(0, 1 - has('caseina') / g) * 2 + 1e-9), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'caseina', unit: 'u', from: 0, qty: n / 2, dq: n / 2, kcal: round(kc('caseina', g * n / 2)), add: true, atLimit: null }); rem -= kc('caseina', g * n / 2); } }
+    if (state.foods.avena && rem > P.redistTol) { const per = kc('avena', 10); const n = Math.min(Math.floor(Math.max(0, 120 - has('avena')) / 10), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'avena', unit: 'g', from: 0, qty: 10 * n, dq: 10 * n, kcal: round(kc('avena', 10 * n)), add: true, atLimit: null }); rem -= kc('avena', 10 * n); } }
     if (!add.length) return null;
     const covered = add.reduce((a, x) => a + x.kcal, 0);
     return { mealId: last.id, delta, dir: 1, projected: round(projected), target: round(dv.target.kcal), items: add, adds: true, covered: round(covered), remaining: round(delta - covered) };
