@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.47';
+export const APP_VERSION = '1.5.48';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -455,14 +455,15 @@ function weekReport(ws, days, T) {
   const sk = top(skip, 2), ad = top(add, 3);
   const row = (k, v) => `<tr><td>${k}</td><td class="r num">${v}</td></tr>`;
   let h = `<div class="card"><h3>Informe de la semana</h3><table style="margin-top:6px">`;
-  h += row('Ingesta media · meta media', `${r0(avg('kcal'))} · ${r0(tgt)} kcal`);
+  h += row('<b>Comés por día (real)</b>', `<b>${r0(avg('kcal'))} kcal</b>`) + row('Meta media del plan', `${r0(tgt)} kcal`);
+  if (hist && hist.implied != null) h += row('<b>Gastás por día (según tus datos)</b>', `<b>${r0(hist.implied)} kcal</b>`);
   h += row('P / C / G media', `${r0(avg('p'))} / ${r0(avg('c'))} / ${r0(avg('f'))} g`);
   h += row('Días cumplidos (98–105 %)', `${ok}/${cl.length} ${ok ? '✅' : ''}`);
   h += row('Peso inicio → fin', w0 == null ? '—' : `${E.round(w0, 2)} → ${E.round(w1, 2)} kg`);
   if (hist && hist.slopeWeek != null) h += row('Tendencia', `${hist.slopeWeek >= 0 ? '+' : ''}${E.round(hist.slopeWeek, 2)} kg/sem`);
   if (fat != null) h += row('% grasa (último)', `${E.round(fat, 1)} %`);
   h += row('Días cerrados · pesajes', `${cl.length}/7 · ${wd.length}`);
-  if (hist && hist.implied != null) h += row('Gasto estimado', `${r0(hist.tdeePrev)} → <b>${r0(hist.tdee)}</b> kcal`) + row('Gasto según tus datos', `${r0(hist.implied)} kcal`);
+  if (hist && hist.implied != null) h += row('Gasto que usa la app', `${r0(hist.tdeePrev)} → <b>${r0(hist.tdee)}</b> kcal`);
   h += `</table>`;
   if (hist && hist.implied != null) h += `<div class="sub" style="margin-top:6px">El gasto se mueve solo una parte hacia lo que dicen tus datos (${r0(hist.implied)}), para no reaccionar a una semana rara.</div>`;
   else if (hist) h += `<div class="sub" style="margin-top:6px">Semana no calibrable: ${esc(hist.reasons.join(', '))}.</div>`;
