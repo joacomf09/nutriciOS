@@ -15,7 +15,11 @@
 <link rel="icon" href="icon-192.png">
 <title>NutriciOS</title>
 <style>
-:root{--bg:#1A1A1A;--card:#222220;--ink:#F5F3EE;--mute:#a8a49c;--line:#3a3a38;--acc:#F7D23E;--acc2:#2a2614;--tape:#FF5A1F;--warn:#FF8A4C;--warn2:#33201a;--bad:#ff6b5a;--r:2px;--ink-on-acc:#1A1A1A;--p:#FF5A1F;--c:#F7D23E;--f:#8FC3E8;--kc:#F5F3EE;--disp:'Big Shoulders Display',Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+:root{--bg:#1A1A1A;--card:#222220;--ink:#F5F3EE;--mute:#a8a49c;--line:#3a3a38;--acc:#F7D23E;--acc2:#2a2614;--tape:#FF5A1F;--warn:#FF8A4C;--warn2:#33201a;--bad:#ff6b5a;--r:2px;--ink-on-acc:#1A1A1A;--p:#FF5A1F;--c:#F7D23E;--f:#8FC3E8;--kc:#F5F3EE;--navbg:rgba(26,26,26,.96);--disp:'Big Shoulders Display',Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#F5F3EE;--card:#FFFFFF;--ink:#1A1A1A;--mute:#5E5A53;--line:#D3CEC4;--acc:#E0B400;--acc2:#FBF3CF;--tape:#FF5A1F;--warn:#C2410C;--warn2:#FDE9DF;--bad:#C62828;--ink-on-acc:#1A1A1A;--p:#E04A10;--c:#C79A00;--f:#2F78B0;--kc:#1A1A1A;--navbg:rgba(245,243,238,.96)}}
+:root[data-theme=light]{--bg:#F5F3EE;--card:#FFFFFF;--ink:#1A1A1A;--mute:#5E5A53;--line:#D3CEC4;--acc:#E0B400;--acc2:#FBF3CF;--tape:#FF5A1F;--warn:#C2410C;--warn2:#FDE9DF;--bad:#C62828;--ink-on-acc:#1A1A1A;--p:#E04A10;--c:#C79A00;--f:#2F78B0;--kc:#1A1A1A;--navbg:rgba(245,243,238,.96)}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .card.hi b,:root:not([data-theme=dark]) .mod,:root:not([data-theme=dark]) .cd.now{color:var(--ink)}}
+:root[data-theme=light] .card.hi b,:root[data-theme=light] .mod,:root[data-theme=light] .cd.now{color:var(--ink)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 'IBM Plex Sans',-apple-system,system-ui,sans-serif}
 body{padding:env(safe-area-inset-top) 0 calc(96px + env(safe-area-inset-bottom))}
@@ -41,7 +45,7 @@ label{font-size:13px;color:var(--mute);display:block;margin:8px 0 4px}
 .big{font-size:52px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .bar{height:8px;border-radius:0;background:var(--line);overflow:hidden;margin-top:6px}.bar>i{display:block;height:100%;background:var(--acc)}
-nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));background:rgba(26,26,26,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:2px solid var(--line);border-radius:2px;display:flex;padding:6px;max-width:620px;margin:0 auto}
+nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));background:var(--navbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:2px solid var(--line);border-radius:2px;display:flex;padding:6px;max-width:620px;margin:0 auto}
 nav button{flex:1;border:0;background:none;font-size:12px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;border-radius:2px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}
 nav button svg{width:24px;height:24px}nav button.on{color:var(--ink-on-acc);font-weight:600;background:var(--acc)}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}td.r,th.r{text-align:right}

@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.6.1';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -142,7 +142,7 @@ function captureDrafts() {
 const dropDraft = k => { delete UI.draft[k]; UI.skipCap = k; };
 
 function render() {
-  const T = todayStr(); if (!UI.day) UI.day = T;
+  const T = todayStr(); if (!UI.day) UI.day = T; applyTheme();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
   const f = { hoy: vHoy, semana: vSemana, plan: vPlan, datos: vDatos, ajustes: vAjustes }[UI.tab];
   const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
@@ -646,11 +646,23 @@ function planPreviewHtml(T) {
 }
 
 // ---------- AJUSTES ----------
+// ---------- tema claro / oscuro (1.6.1) ----------
+function applyTheme() {
+  const m = S?.settings?.theme || 'auto', h = new Date().getHours();
+  const t = m === 'horario' ? (h >= 8 && h < 20 ? 'light' : 'dark') : m;
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#1A1A1A' : '#F5F3EE');
+}
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (S) applyTheme(); }); } catch {}
+setInterval(() => { if (S && S.settings.theme === 'horario') applyTheme(); }, 60000);
 function vAjustes(T) {
   const P = S.settings.params;
   const f = (k, l, step = 1) => `<div class="it row sp" style="margin:6px 0"><span>${l}</span><input style="width:110px" type="number" step="${step}" data-par="${k}" value="${P[k]}"></div>`;
   return `<h1>Ajustes</h1>
   <div class="card"><div class="row sp"><div><h3>Versión ${APP_VERSION}</h3><div class="sub">${UPD.latest ? (UPD.latest === APP_VERSION ? 'Al día' : 'Disponible: ' + esc(UPD.latest)) : 'Sin comprobar'}</div></div><div class="row"><button class="s" data-a="checkupd">${UPD.checking ? 'Comprobando…' : 'Buscar'}</button><button class="p s" data-a="update">Actualizar</button></div></div><div class="sub" style="margin-top:6px">Actualizar recarga la app desde GitHub. Tus datos no se tocan.</div></div>
+  <div class="card"><h3>Apariencia</h3><div class="sub">Automático sigue al iPhone (si en Ajustes del iPhone → Pantalla elegís "Automático", es claro de día y oscuro de noche).</div>
+    <div class="chips" style="margin-top:8px">${[['auto', 'Automático (iPhone)'], ['horario', 'Por horario (8–20 h claro)'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button data-a="theme" data-v="${k}" class="${(S.settings.theme || 'auto') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
   <div class="card hi"><h3>Objetivo</h3><div class="sub">Lo que se muestra arriba en Hoy, con la cuenta regresiva.</div>
     <label>Nombre del objetivo</label><input id="gname" value="${esc(S.settings.goalName || 'Verano en Paraguay')}">
     <div class="row"><div class="grow"><label>Fecha objetivo</label><input id="gdate" type="date" value="${S.settings.goalDate || S.settings.endDate || ''}"></div><div class="grow"><label>o días desde hoy</label><input id="gdays" type="number" inputmode="numeric" placeholder="ej. 70"></div></div>
@@ -801,6 +813,7 @@ document.addEventListener('click', async e => {
     case 'planApply': { const P = UI.planImport; if (!P) break; const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       const list = P.newFoods.map(([id, food]) => ['FOOD', { id, food }]); list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: P.meals, reason: 'Plan importado' }]);
       UI.planImport = null; UI.planJson = ''; await emitMany(list); toast('Plan importado · desde ' + dLabel(eff)); backup(); break; }
+    case 'theme': await emit('SETTINGS', { theme: el.dataset.v }); toast('Apariencia guardada'); break;
     case 'saveGoal': { const n = +$('#gdays').value; const goalDate = n > 0 ? E.addDays(T, n) : $('#gdate').value; const goalName = $('#gname').value.trim() || 'Verano en Paraguay';
       if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
     case 'backup': backup(); break;
