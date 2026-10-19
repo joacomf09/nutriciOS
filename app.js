@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.5.46';
+export const APP_VERSION = '1.5.47';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -267,6 +267,20 @@ function liveBlock(T, full) {
     ${p.why.slice(-1).map(w => `<div class="sub" style="margin-top:6px">${esc(w)}</div>`).join('')}</div>`;
 }
 
+// ---------- restantes del día y de la semana en tiempo real (1.5.47, pedido del usuario) ----------
+function weekDebt(T) {
+  const ws = E.weekStart(T); let prior = 0;
+  for (const d of E.range(ws, E.diffDays(T, ws))) { const v = E.dayView(S, d, T); prior += v.target.kcal - v.actual.kcal; }
+  const dv = E.dayView(S, T, T), today = dv.target.kcal - dv.eatenConfirmed.kcal;
+  return { prior, today, week: prior + today };
+}
+function debtCard(T) {
+  const x = weekDebt(T), f = v => `${v < 0 ? '+' : ''}${r0(Math.abs(v))} kcal`;
+  return `<div class="card" id="debtcard"><div class="row sp"><span>Restantes hoy</span><b class="num">${x.today >= 0 ? r0(x.today) + ' kcal' : 'pasado ' + r0(-x.today) + ' kcal'}</b></div>
+    <div class="row sp" style="margin-top:6px"><span>Restantes de la semana</span><b class="num" style="color:var(--acc)">${x.week >= 0 ? r0(x.week) + ' kcal' : 'pasado ' + r0(-x.week) + ' kcal'}</b></div>
+    <div class="sub" style="margin-top:6px">Desde el lunes: lo que faltó suma y lo que te pasaste resta (incluye hoy). De días anteriores: ${Math.abs(x.prior) < 1 ? 'al día' : x.prior > 0 ? 'faltan ' + r0(x.prior) + ' kcal' : 'a favor ' + r0(-x.prior) + ' kcal'}.</div></div>`;
+}
+
 // ---------- HOY ----------
 function pendingCloses(T) {
   const out = []; for (let i = 1; i <= 7; i++) { const d = E.addDays(T, -i); if (d < S.settings.startDate) break; if (!S.closes[d]) out.push(d); }
@@ -355,6 +369,7 @@ function vHoy(T) {
   h += `<h2>Extras</h2><div class="card">${dv.extras.map(x => `<div class="row sp"><span>${esc(x.name)} ${x.estimated ? '<span class="tag">estimado</span>' : ''}</span><span class="num">${r0(x.kcal)} kcal <button class="s del" data-a="delx" data-x="${x.id}">✕</button></span></div>`).join('') || '<div class="sub">Comida fuera del plan.</div>'}
     <div class="row wrap" style="margin-top:8px"><button class="s" data-a="quick" data-k="200">+200</button><button class="s" data-a="quick" data-k="500">+500</button><button class="s" data-a="quick" data-k="1000">+1.000</button><button class="s" data-a="custom">Personalizado</button></div>
     <div id="customx" class="hidden"><label>Nombre</label><input id="xn" placeholder="Ej.: pizza"><div class="row"><div class="grow"><label>kcal</label><input id="xk" type="number"></div><div class="grow"><label>P</label><input id="xp" type="number"></div><div class="grow"><label>C</label><input id="xc" type="number"></div><div class="grow"><label>G</label><input id="xf" type="number"></div></div><button class="p s" style="margin-top:8px" data-a="addx">Añadir</button></div></div>`;
+  if (d === T) h += debtCard(T);
   // Día ya cerrado: el saldo que queda incluyendo el cierre de hoy (1.5.34)
   if (d === T && dv.close) { const nx = E.addDays(d, 1), same = E.weekStart(nx) === E.weekStart(d), rest = same ? E.weekBank(S, nx, T) : 0;
     h += `<div class="card" id="bankcard"><div class="sub">Saldo semanal con el cierre de hoy: ${same ? (rest > 50 ? `<b style="color:var(--ink)">${r0(rest)} kcal</b> por compensar (hasta +300 por día).` : 'al día.') : 'se reinicia el lunes.'}</div>${liveBlock(T, false)}</div>`; }
@@ -879,6 +894,14 @@ async function migrate() {
     }
     const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 200 };
     list.push(['SETTINGS', { params }], ['SETTINGS', { mig1546: true }]);
+    await emitMany(list);
+  }
+  // 1.5.47: el usuario pidió que el plan 1.6 rija desde HOY (19-10)
+  if (!S.settings.mig1547) {
+    const list = [], nx = E.versionAt(S, E.addDays(T, 1));
+    if (!E.versionAt(S, T).meals.some(m => m.id === 'pre') && nx.meals.some(m => m.id === 'pre'))
+      list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: T, meals: JSON.parse(JSON.stringify(nx.meals)), reason: 'Plan 1.6 desde hoy' }]);
+    list.push(['SETTINGS', { mig1547: true }]);
     await emitMany(list);
   }
 
