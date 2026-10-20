@@ -73,7 +73,7 @@ export const DEFAULT_MEALS = [
     { foodId: 'pollo', qty: 300, unit: 'g', role: 'fixed' },
     { foodId: 'arroz', qty: 80, unit: 'g', role: 'carb', min: 40, max: 160, step: 5 },
     { foodId: 'lentejas', qty: 100, unit: 'g', role: 'fixed' },
-    { foodId: 'aceite', qty: 5, unit: 'g', role: 'fixed' },
+    { foodId: 'aceite', qty: 3, unit: 'g', role: 'fixed' },
     { foodId: 'natilla', qty: 0, unit: 'u', role: 'fixed' } ] },
   { id: 'merienda', name: 'Merienda (panqueques)', items: [
     { foodId: 'avena', qty: 80, unit: 'g', role: 'carb', min: 40, max: 120, step: 5 },

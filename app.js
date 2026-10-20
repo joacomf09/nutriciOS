@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.3';
+export const APP_VERSION = '1.6.4';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -1003,6 +1003,15 @@ async function migrate() {
       if (ch) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Redondeo a 10 g: pasta 110, avena 80, tomate 100, mozzarella 30 (palanca 20–40)' }]); }
     const params = { ...JSON.parse(JSON.stringify(S.settings.params)), stepCapHyst: 300 };
     list.push(['SETTINGS', { params }], ['SETTINGS', { mig1550: true }]);
+    await emitMany(list);
+  }
+  // 1.6.4: aceite de oliva por defecto 3 g en toda comida que lo lleve (pedido del usuario el 20-10, "de ahora en más": hoy y versiones futuras)
+  if (!S.settings.mig1551) {
+    const list = [], dates = [...new Set([T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)])];
+    for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); let ch = false;
+      for (const m of meals) for (const it of m.items) if (it.foodId === 'aceite' && it.qty > 0 && it.qty !== 3) { it.qty = 3; ch = true; }
+      if (ch) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Aceite de oliva por defecto: 3 g por comida' }]); }
+    list.push(['SETTINGS', { mig1551: true }]);
     await emitMany(list);
   }
   // 1.5.49: opciones de proteína y carbo en almuerzo y cena (hoy y versiones futuras)
