@@ -45,6 +45,7 @@ export const DEFAULT_FOODS = {
   mozza:    { name: 'Queso mozzarella rallado Hacendado (Pizza-Roma)', per100: { kcal: 283, p: 21, c: 2.5, f: 21 }, src: 'etiqueta' },
   tomateart:{ name: 'Tomate frito receta artesana Hacendado', per100: { kcal: 201, p: 1.6, c: 14.3, f: 15 }, src: 'etiqueta (frasco 300 g)' },
   burger:   { name: 'Burger meat vacuno gruesa Mercadona: 1 unidad (180 g, cruda)', per100: { kcal: 219, p: 17, c: 4.1, f: 15 }, unitG: 180, unitName: 'hamburguesa', src: 'etiqueta (2 uds de 180 g; 1 unidad = 395 kcal)' },
+  carnemolida: { name: 'Carne molida de vacuno Hacendado (burger meat, cruda)', per100: { kcal: 180, p: 17, c: 3, f: 12 }, src: 'etiqueta (bandeja 500 g; preparado de carne, vacuno 90 %; sat. 5, azúcares 0,5, sal 0,7 por 100 g; Embutidos F. Martínez, Cheste)' },
   fusilli:  { name: 'Fusilli Armando (pasta cruda)', per100: { kcal: 354, p: 14, c: 70.2, f: 1.3 }, src: 'etiqueta (paquete 500 g)' },
   pestorosso:{ name: 'Pesto rosso con tomates secados al sol Gallo', per100: { kcal: 364, p: 4.2, c: 9.3, f: 34 }, src: 'etiqueta (tarro, 1 porción = 38 g)' },
   yogfagsl: { name: 'Yogur natural sin lactosa La Fageda (pote 125 g)', per100: { kcal: 78, p: 5.4, c: 6.4, f: 3.4 }, unitG: 125, unitName: 'pote', src: 'FatSecret (La Fageda yogur sin lactosa, por 100 g; no es etiqueta del envase)' },
