@@ -26,7 +26,7 @@ export const DEFAULT_FOODS = {
   wheyon:   { name: 'Whey Gold Standard 100% Whey (Optimum Nutrition)', per100: { kcal: 395, p: 78.9, c: 9.9, f: 3.3 }, unitG: 30.4, unitName: 'scoop', src: 'ON: 1 scoop (30,4 g) = 120 kcal, P 24, C 3, G 1 (redondeado; varía un poco por sabor)' },
   pasta:    { name: 'Pasta, cruda', per100: { kcal: 371, p: 13, c: 75, f: 1.5 }, src: 'USDA' },
   carne:    { name: 'Carne vacuna magra, cruda', per100: { kcal: 170, p: 20, c: 0, f: 10 }, src: 'USDA' },
-  salmon:   { name: 'Salmón, crudo', per100: { kcal: 208, p: 20, c: 0, f: 13 }, src: 'USDA' },
+  salmon:   { name: 'Salmón de cría de Noruega Leroy (lomo sin piel, crudo)', per100: { kcal: 223, p: 20, c: 0, f: 16 }, src: 'etiqueta (Leroy, 2 lomos de 125 g = 250 g; Salmo salar de cría de Noruega; sat. 2,3, sal 0,1 por 100 g; antes USDA 208 kcal / G 13)' },
   merluza:  { name: 'Pescado blanco (merluza), crudo', per100: { kcal: 90, p: 18, c: 0, f: 1.8 }, src: 'USDA' },
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
   psyllium: { name: 'Psyllium husk (fibra) Pure Diet', per100: { kcal: 366, p: 5.3, c: 0.7, f: 1 }, unitG: 2, unitName: 'cda', src: 'etiqueta (fibra 83 g/100 g)' },

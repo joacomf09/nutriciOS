@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.6';
+export const APP_VERSION = '1.6.7';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -881,7 +881,7 @@ async function migrate() {
   if (!S.settings.mig1536) { const params = { ...JSON.parse(JSON.stringify(S.settings.params)), firstStepCap: 100 }; if (params.calibrationWeeksMin === 2) params.calibrationWeeksMin = 1;
     await emitMany([['SETTINGS', { params }], ['SETTINGS', { mig1536: true }]]); }
   // etiquetas reales: actualiza alimentos que cambiaron en DEFAULT_FOODS
-  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan', 'pina'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
+  const upd = ['guacamole', 'pb2', 'lentejas', 'natilla', 'pan', 'pina', 'salmon'].filter(id => S.foods[id] && (S.foods[id].name !== E.DEFAULT_FOODS[id].name || S.foods[id].per100.kcal !== E.DEFAULT_FOODS[id].per100.kcal || S.foods[id].unitName !== E.DEFAULT_FOODS[id].unitName) && !String(S.foods[id].src || '').startsWith('editado'));
   if (upd.length) await emitMany(upd.map(id => ['FOOD', { id, food: E.DEFAULT_FOODS[id] }]));
   // 1.5.4: guacamole diario en el desayuno (200 g/semana = 29 g/día), reemplaza el aguacate de la cena
   const T = todayStr();
