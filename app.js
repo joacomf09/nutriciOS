@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.7';
+export const APP_VERSION = '1.6.8';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -862,7 +862,7 @@ document.addEventListener('change', async e => {
 
 // ---------- deslizar (a cualquier lado) para quitar ingrediente ----------
 let SW = null;
-document.addEventListener('touchstart', e => { const r = e.target.closest('.swipe'); if (!r || e.target.closest('input,select,button')) return; SW = { r, c: r.querySelector('.swc'), bg: r.querySelector('.swbg'), x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null }; }, { passive: true });
+document.addEventListener('touchstart', e => { const r = e.target.closest('.swipe'); if (!r || e.target.closest('input,button')) return; SW = { r, c: r.querySelector('.swc'), bg: r.querySelector('.swbg'), x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null }; }, { passive: true });
 document.addEventListener('touchmove', e => { if (!SW) return; const t = e.touches[0]; const dx = t.clientX - SW.x, dy = t.clientY - SW.y;
   if (SW.lock === null && Math.abs(dx) + Math.abs(dy) > 8) SW.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
   if (SW.lock !== 'x') return; SW.dx = dx; SW.c.style.transition = 'none'; SW.c.style.transform = `translateX(${dx}px)`;

@@ -52,6 +52,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;b
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{border-radius:2px;padding:6px 12px;min-height:34px;font-size:14px}.chips button.on{background:var(--acc);color:var(--ink-on-acc);border-color:var(--acc)}
 .items .it{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;margin:6px 0}
 .items .swipe{position:relative;margin:6px 0;border-radius:2px;overflow:hidden}
+.items .swipe .it select{touch-action:pan-y}
 .items .swipe .it{margin:0;background:var(--card);position:relative;touch-action:pan-y}
 .swbg{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#3a1517;color:var(--bad);opacity:0}
 .swbg svg{width:22px;height:22px;transition:transform .15s}.swbg.ready{background:var(--bad);color:#fff}.swbg.ready svg{transform:scale(1.25)}
