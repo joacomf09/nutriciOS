@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.8';
+export const APP_VERSION = '1.6.9';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -367,7 +367,7 @@ function vHoy(T) {
   if (d === T) h += goalBanner(T, dv.eatenConfirmed, dv.target);
   // peso
   h += `<div class="card"><div class="row sp"><div><h3>Peso en ayunas</h3><div class="sub">${todayW.length ? todayW.map(w => `${w.kg} kg${w.fatPct != null ? ' · ' + w.fatPct + ' %' : ''}`).join(' · ') : 'Opcional a diario; también se carga el lunes.'}</div></div>
-    <div class="row" style="width:150px"><input id="wkg" type="text" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div></div>`;
+    <div class="row" style="width:150px"><input id="wkg" type="text" inputmode="decimal" step="0.01" placeholder="kg"><button class="s p" data-a="addw" data-d="${d}">+</button></div></div><button class="s" data-a="pastew" data-d="${d}" style="margin-top:10px;width:100%">Pegar de Apple Salud (Atajo)</button></div>`;
   // totales
   const off_ = st => !['confirmed', 'edited', 'replaced'].includes(st);
     const E_ = dv.eatenConfirmed, TG = dv.target;
@@ -813,6 +813,16 @@ document.addEventListener('click', async e => {
     case 'planApply': { const P = UI.planImport; if (!P) break; const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       const list = P.newFoods.map(([id, food]) => ['FOOD', { id, food }]); list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: P.meals, reason: 'Plan importado' }]);
       UI.planImport = null; UI.planJson = ''; await emitMany(list); toast('Plan importado · desde ' + dLabel(eff)); backup(); break; }
+    case 'pastew': { // 1.6.9: pesaje copiado por el Atajo "NutriciOS peso" (Apple Salud → portapapeles)
+      let txt = ''; try { txt = await navigator.clipboard.readText(); } catch { toast('iOS no dejó leer el portapapeles. Tocá "Pegar" cuando lo pida.'); break; }
+      const num = re => { const m = txt.match(re); return m ? parseFloat(m[1].replace(',', '.')) : NaN; };
+      const kg = num(/w\s*=\s*([\d.,]+)/i); let fat = num(/f\s*=\s*([\d.,]+)/i); const dm = txt.match(/d\s*=\s*(\d{4}-\d{2}-\d{2})/i);
+      if (!(kg > 30 && kg < 300)) { toast('No encontré un peso en el portapapeles. Corré primero el Atajo.'); break; }
+      if (fat > 0 && fat <= 1) fat = fat * 100; if (!(fat > 2 && fat < 60)) fat = null;
+      const date = dm ? dm[1] : el.dataset.d || T;
+      if (S.weights.some(w => !w.deleted && w.date === date && Math.abs(w.kg - kg) < 0.005)) { toast('Ese pesaje ya estaba cargado'); break; }
+      await emit('WEIGHT', { id: uid(), date, kg: E.round(kg, 2), fatPct: fat == null ? null : E.round(fat, 1), source: 'apple_health_atajo' });
+      toast(`Cargado: ${E.round(kg, 2)} kg${fat == null ? '' : ' · ' + E.round(fat, 1) + ' %'} (${date})`); break; }
     case 'theme': await emit('SETTINGS', { theme: el.dataset.v }); toast('Apariencia guardada'); break;
     case 'saveGoal': { const n = +$('#gdays').value; const goalDate = n > 0 ? E.addDays(T, n) : $('#gdate').value; const goalName = $('#gname').value.trim() || 'Verano en Paraguay';
       if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
