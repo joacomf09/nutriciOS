@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.10';
+export const APP_VERSION = '1.6.11';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -489,8 +489,8 @@ function vSemana(T) {
   const days = E.range(ws, 7).map(d => E.dayView(S, d, T));
   const closed = days.filter(d => d.hasData).length;
   const wts = E.range(ws, 7).map(d => ({ d, w: S.weights.filter(x => x.date === d) }));
-  let h = vPreview(T) + `<div class="card"><div class="row sp wrap"><div><h3>Recalcular ahora</h3><div class="sub">Con tus últimos días, sin esperar al lunes. Incluye todos los días (también salidas): 14 días diluye un día atípico.</div></div></div>
-    <div class="row" style="margin-top:8px"><button class="s" data-a="recalc" data-n="7">Últimos 7 días</button><button class="p s" data-a="recalc" data-n="14">Últimos 14 días</button></div></div>`
+  let h = vPreview(T) + `<div class="card"><div class="row sp wrap"><div><h3>Recalcular ahora</h3><div class="sub">Usa los últimos 14 días (si todavía no alcanzan, 7). Incluye todos los días, también salidas: 14 días diluye un día atípico.</div></div></div>
+    <button class="p" style="margin-top:8px;width:100%" data-a="recalc">Recalcular ahora</button></div>`
     + (UI.proposal?.rolling ? vProposal(UI.proposal, T) : '')
     + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
   h += weekReport(ws, days, T);
@@ -756,7 +756,7 @@ document.addEventListener('click', async e => {
     case 'addx': { const k = +$('#xk').value; if (k > 0) await emit('EXTRA', { date: d, id: uid(), name: $('#xn').value || 'Comida', kcal: k, p: +$('#xp').value || 0, c: +$('#xc').value || 0, f: +$('#xf').value || 0 }); break; }
     case 'delx': await emit('EXTRA_DEL', { date: d, id: el.dataset.x }); break;
     case 'ctx': el.classList.toggle('on'); break;
-    case 'recalc': { UI.proposal = E.rollingProposal(S, T, +el.dataset.n); render(); break; }
+    case 'recalc': { let p = E.rollingProposal(S, T, 14); if (!p.hist.calibrable) { const p7 = E.rollingProposal(S, T, 7); if (p7.hist.calibrable) { p7.why.unshift('Todavía no hay 14 días completos: se usaron los últimos 7.'); p = p7; } } UI.proposal = p; render(); break; }
     case 'calc': {
       const ws = el.dataset.w; const list = [];
       document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseKg(inp.value); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
@@ -817,16 +817,24 @@ document.addEventListener('click', async e => {
     case 'planApply': { const P = UI.planImport; if (!P) break; const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       const list = P.newFoods.map(([id, food]) => ['FOOD', { id, food }]); list.push(['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: P.meals, reason: 'Plan importado' }]);
       UI.planImport = null; UI.planJson = ''; await emitMany(list); toast('Plan importado · desde ' + dLabel(eff)); backup(); break; }
-    case 'pastew': { // 1.6.9: pesaje copiado por el Atajo "NutriciOS peso" (Apple Salud → portapapeles)
+    case 'pastew': { // 1.6.11: pesajes copiados por el Atajo (Apple Salud → portapapeles); una o varias líneas
       let txt = ''; try { txt = await navigator.clipboard.readText(); } catch { toast('iOS no dejó leer el portapapeles. Tocá "Pegar" cuando lo pida.'); break; }
-      const num = re => { const m = txt.match(re); return m ? parseFloat(m[1].replace(',', '.')) : NaN; };
-      const kg = num(/w\s*=\s*([\d.,]+)/i); let fat = num(/f\s*=\s*([\d.,]+)/i); const dm = txt.match(/d\s*=\s*(\d{4}-\d{2}-\d{2})/i);
-      if (!(kg > 30 && kg < 300)) { toast('No encontré un peso en el portapapeles. Corré primero el Atajo.'); break; }
-      if (fat > 0 && fat <= 1) fat = fat * 100; if (!(fat > 2 && fat < 60)) fat = null;
-      const date = dm ? dm[1] : el.dataset.d || T;
-      if (S.weights.some(w => !w.deleted && w.date === date && Math.abs(w.kg - kg) < 0.005)) { toast('Ese pesaje ya estaba cargado'); break; }
-      await emit('WEIGHT', { id: uid(), date, kg: E.round(kg, 2), fatPct: fat == null ? null : E.round(fat, 1), source: 'apple_health_atajo' });
-      toast(`Cargado: ${E.round(kg, 2)} kg${fat == null ? '' : ' · ' + E.round(fat, 1) + ' %'} (${date})`); break; }
+      const num = (s, re) => { const m = s.match(re); return m ? parseFloat(m[1].replace(',', '.')) : NaN; };
+      const W = {}, F = {};
+      for (const ln of txt.split(/[\n;]+/)) {
+        const dm = ln.match(/d\s*=\s*(\d{4}-\d{2}-\d{2})/i), date = dm ? dm[1] : (el.dataset.d || T);
+        const kg = num(ln, /w\s*=\s*([\d.,]+)/i); let fat = num(ln, /f\s*=\s*([\d.,]+)/i);
+        if (kg > 30 && kg < 300 && !(date in W)) W[date] = kg;
+        if (fat > 0 && fat <= 1) fat *= 100; if (fat > 2 && fat < 60 && !(date in F)) F[date] = fat;
+      }
+      const list = [];
+      for (const [date, kg] of Object.entries(W).sort()) {
+        if (S.weights.some(w => !w.deleted && w.date === date && Math.abs(w.kg - kg) < 0.05)) continue;
+        list.push(['WEIGHT', { id: uid(), date, kg: E.round(kg, 2), fatPct: F[date] == null ? null : E.round(F[date], 1), source: 'apple_health_atajo' }]);
+      }
+      if (!Object.keys(W).length) { toast('No encontré pesos en el portapapeles. Corré primero el Atajo.'); break; }
+      if (!list.length) { toast('Todos esos pesajes ya estaban cargados'); break; }
+      await emitMany(list); toast(`Cargados ${list.length} pesaje${list.length > 1 ? 's' : ''} de Apple Salud`); break; }
     case 'theme': await emit('SETTINGS', { theme: el.dataset.v }); toast('Apariencia guardada'); break;
     case 'saveGoal': { const n = +$('#gdays').value; const goalDate = n > 0 ? E.addDays(T, n) : $('#gdate').value; const goalName = $('#gname').value.trim() || 'Verano en Paraguay';
       if (!goalDate) { toast('Indicá fecha o días'); break; } await emit('SETTINGS', { goalName, goalDate }); toast(`Objetivo: ${E.diffDays(goalDate, T)} días`); break; }
