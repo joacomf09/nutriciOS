@@ -656,13 +656,13 @@ export function pancakeItems(foods, planItems, curItems, eggs = null) {
   if (!items.some(i => /^merm/.test(i.foodId))) set(PANCAKE.jamId, PANCAKE.jamG, 'g');
   return items;
 }
-// Compensa en la cena el exceso de kcal: baja la proteína (pasos de 10 g, mínimo 150 g) y si no alcanza la pasta (mínimo 40 g).
+// Compensa en la cena el exceso de kcal bajando solo el carbo (pasta), pasos de 10 g, mínimo 40 g. La proteína no se toca.
 export function compensateDinner(foods, dinnerItems, extraKcal) {
   const items = dinnerItems.map(i => ({ ...i })); let rem = extraKcal; if (rem <= 0) return { items, removed: 0 };
   const prot = items.find(i => i.unit === 'g' && i.choices && i.role !== 'carb' && i.qty > 0);
   const carb = items.find(i => i.role === 'carb' && i.qty > 0);
   const k10 = it => itemMacros(foods, { ...it, qty: 10 }).kcal;
-  for (const [it, min] of [[prot, 150], [carb, 40]]) { if (!it) continue;
+  for (const [it, min] of [[carb, 40]]) { if (!it) continue; // la proteína es fija: solo se mueve el carbo
     while (rem > k10(it) / 2 && it.qty - 10 >= min) { it.qty -= 10; rem -= k10(it); } }
   return { items, removed: round(extraKcal - rem) };
 }
