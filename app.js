@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.14';
+export const APP_VERSION = '1.6.15';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -278,7 +278,7 @@ function debtCard(T) {
   const x = weekDebt(T), f = v => `${v < 0 ? '+' : ''}${r0(Math.abs(v))} kcal`;
   return `<div class="card" id="debtcard"><div class="row sp"><span>Restantes hoy</span><b class="num">${x.today >= 0 ? r0(x.today) + ' kcal' : 'pasado ' + r0(-x.today) + ' kcal'}</b></div>
     <div class="row sp" style="margin-top:6px"><span>Restantes de la semana</span><b class="num" style="color:var(--acc)">${x.week >= 0 ? r0(x.week) + ' kcal' : 'pasado ' + r0(-x.week) + ' kcal'}</b></div>
-    <div class="sub" style="margin-top:6px">Desde el lunes: lo que faltó suma y lo que te pasaste resta (incluye hoy). De días anteriores: ${Math.abs(x.prior) < 1 ? 'al día' : x.prior > 0 ? 'faltan ' + r0(x.prior) + ' kcal' : 'a favor ' + r0(-x.prior) + ' kcal'}.</div></div>`;
+    <div class="sub" style="margin-top:6px">Desde el lunes: lo que faltó suma y lo que te pasaste resta (incluye hoy). De días anteriores: ${Math.abs(x.prior) < 1 ? 'al día' : x.prior > 0 ? 'te faltaron ' + r0(x.prior) + ' kcal (se suman)' : 'te pasaste ' + r0(-x.prior) + ' kcal (se restan)'}.</div></div>`;
 }
 
 function yesterdayItems(d, mid, T) {
@@ -1043,6 +1043,20 @@ async function migrate() {
       E.equalizeCarbs(S.foods, meals);
       if (JSON.stringify(meals) !== before) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Misma cantidad de carbo en almuerzo y cena' }]); }
     list.push(['SETTINGS', { mig1614: true }]);
+    await emitMany(list);
+  }
+  // 1.6.15: revertir el recálculo aprobado el 25-10 con 1.6.13 (recortó avena del pre y dextrosa): se restauran
+  // los carbos fuera de almuerzo/cena a los valores previos a esa versión, hoy y en versiones futuras
+  if (!S.settings.mig1615) {
+    const rec = S.versions.filter(v => v.effectiveFrom === '2026-10-25' && /^Recálculo/.test(v.reason || '')).at(-1);
+    const list = [];
+    if (rec) { const prev = S.versions.filter(v => v !== rec && v.effectiveFrom <= rec.effectiveFrom && S.versions.indexOf(v) < S.versions.indexOf(rec)).at(-1);
+      const q = {}; if (prev) for (const m of prev.meals) if (m.id !== 'almuerzo' && m.id !== 'cena') for (const it of m.items) if (it.role === 'carb') q[m.id + '|' + it.foodId] = it.qty;
+      const dates = [...new Set([T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)])];
+      for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); let ch = false;
+        for (const m of meals) for (const it of m.items) { const k = m.id + '|' + it.foodId; if (k in q && it.qty !== q[k]) { it.qty = q[k]; ch = true; } }
+        if (ch) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Revertido el recálculo: avena y dextrosa como antes' }]); } }
+    list.push(['SETTINGS', { mig1615: true }]);
     await emitMany(list);
   }
   // 1.6.4: aceite de oliva por defecto 3 g en toda comida que lo lleve (pedido del usuario el 20-10, "de ahora en más": hoy y versiones futuras)
