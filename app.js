@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.15';
+export const APP_VERSION = '1.6.16';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -249,6 +249,18 @@ function liveHint(card) {
   const h = E.lastMealCarbHint(S, d, T, { asPending: m.id, items: panelItems(card, m) });
   box.innerHTML = h && h.mealId === m.id ? hintBlock(h) : '';
 }
+// 1.6.16: panqueques en el pre-entreno — guarda el pre y compensa la cena si todavía no se comió
+async function savePancake(d, T, items) {
+  const dv0 = E.dayView(S, d, T), pre = dv0.meals.find(m => m.id === 'pre'), cena = dv0.meals.find(m => m.id === 'cena');
+  const extra = E.sumItems(S.foods, items).kcal - pre.plannedTot.kcal;
+  const list = [['MEAL_SET', { date: d, mealId: 'pre', status: 'replaced', items }]]; let msg = 'Panqueques guardados';
+  const auto = S.mealSets[d]?.cena?.auto === 'pancake';
+  if (cena && (auto || (['pending', 'assumed'].includes(cena.status) && !cena.touched))) {
+    const c = E.compensateDinner(S.foods, cena.planned, extra > 30 ? extra : 0);
+    if (c.removed) { list.push(['MEAL_SET', { date: d, mealId: 'cena', status: 'edited', items: c.items, auto: 'pancake' }]); msg += ` · cena −${E.round(c.removed)} kcal`; }
+    else if (auto) list.push(['MEAL_RESET', { date: d, mealId: 'cena' }]); }
+  await emitMany(list); return msg;
+}
 document.addEventListener('input', e => { if (e.target.matches('.items [data-f]')) liveHint(e.target.closest('[data-meal]')); });
 
 // ---------- estimado del próximo lunes (1.5.36) ----------
@@ -428,7 +440,7 @@ function vHoy(T) {
       { const lh = d <= T && !dv.close ? E.lastMealCarbHint(S, d, T, { asPending: m.id }) : null; h += `<div class="livehint" style="text-align:right;margin:4px 0 8px">${lh && lh.mealId === m.id ? hintBlock(lh) : ''}</div>`; }
       h += `<div class="sub">Deslizá un ingrediente hacia cualquier lado para quitarlo (o poné 0). Guardar la marca como comida; el plan original se conserva.</div>
         <input class="addsearch" data-m="${m.id}" placeholder="Buscar alimento…" style="margin-top:8px"><div class="row" style="margin-top:8px"><select id="addf-${m.id}" class="grow">${addOptions(T)}</select><input id="addq-${m.id}" type="text" inputmode="decimal" placeholder="${unitLbl(Object.entries(S.foods).sort((a, b) => a[1].name.localeCompare(b[1].name))[0][0])}" style="width:80px"><button class="s" data-a="addItem" data-m="${m.id}">+ Añadir</button></div>
-        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button>${yesterdayItems(d, m.id, T) ? `<button class="s" data-a="repeatMeal" data-m="${m.id}">Igual que ayer</button>` : ""}</div></div>`;
+        <div class="row" style="margin-top:8px"><button class="p s" data-a="saveMeal" data-m="${m.id}">Guardar</button><button class="s" data-a="skipMeal" data-m="${m.id}">No la comí</button><button class="s" data-a="resetMeal" data-m="${m.id}">Volver al plan</button>${m.id === 'pre' && m.planned.some(i => i.foodId === 'caseina') ? `<button class="s" data-a="pancake">🥞 Panqueques</button>` : ''}${yesterdayItems(d, m.id, T) ? `<button class="s" data-a="repeatMeal" data-m="${m.id}">Igual que ayer</button>` : ""}</div></div>`;
     }
     h += `</div>`;
   }
@@ -730,7 +742,14 @@ document.addEventListener('click', async e => {
       const changedFood = m.status === 'replaced' || cur.some((it, i) => it.foodId !== m.actualItems[i].foodId);
       const k = d + mid; dropDraft(k);
       await emit('MEAL_SET', { date: d, mealId: mid, status: changedFood ? 'replaced' : 'edited', items }); UI.open[k] = true; render(); UI.skipCap = null; toast('Añadido'); break; }
-    case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(String(inp.value).replace(',', '.')) || 0) + parseFloat(el.dataset.s), 2)); liveHint(el.closest('[data-meal]')); break; }
+    case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(String(inp.value).replace(',', '.')) || 0) + parseFloat(el.dataset.s), 2)); { const card = el.closest('[data-meal]'); if (card?.dataset.meal === 'pre') { const m = dv().meals.find(x => x.id === 'pre');
+        const fidAt = k => { const r = card.querySelector(`.swipe[data-i="${k}"]`); const s2 = r?.querySelector('[data-f="food"]'); return s2 ? s2.value : m.actualItems[k]?.foodId; };
+        const live = k => { const r = card.querySelector(`.swipe[data-i="${k}"]`); return r && !r.classList.contains('gone'); };
+        const idx = m.actualItems.map((_, k) => k);
+        if (fidAt(+el.dataset.i) === 'huevo' && !idx.some(k => fidAt(k) === 'caseina' && live(k))) {
+          const n = parseFloat(String(inp.value).replace(',', '.')) || 0; const plOat = (m.planned.find(x => x.foodId === 'avena') || { qty: 80 }).qty;
+          const k = idx.find(k => fidAt(k) === 'avena' && live(k)); const q = k != null && card.querySelector(`.swipe[data-i="${k}"] [data-f="qty"]`); if (q) q.value = Math.min(plOat, E.PANCAKE.oatPerEgg * n); } } }
+      liveHint(el.closest('[data-meal]')); break; }
     case 'openm': { const k = d + el.dataset.m; UI.open[k] = !UI.open[k]; if (!UI.open[k]) dropDraft(k); render(); UI.skipCap = null; break; }
     case 'saveMeal': {
       const m = dv().meals.find(x => x.id === el.dataset.m); const card = el.closest('.card');
@@ -743,7 +762,11 @@ document.addEventListener('click', async e => {
       if (!kept.length) { UI.open[d + m.id] = false; await emit('MEAL_SET', { date: d, mealId: m.id, status: 'skipped' }); toast('Sin ingredientes: marcada como no comida'); break; }
       items.length = 0; items.push(...kept);
       UI.open[d + m.id] = false;
+      if (m.id === 'pre' && m.planned.some(i => i.foodId === 'caseina' && i.qty > 0) && !items.some(i => i.foodId === 'caseina')) {
+        const eggs = items.find(i => i.foodId === 'huevo')?.qty || null;
+        const pi = E.pancakeItems(S.foods, m.planned, items, eggs); UI.skipCap = null; toast(await savePancake(d, todayStr(), pi)); break; }
       await emit('MEAL_SET', { date: d, mealId: m.id, status: changedFood ? 'replaced' : 'edited', items }); UI.skipCap = null; toast('Guardado'); break; }
+    case 'pancake': { const m = dv().meals.find(x => x.id === 'pre'); const pi = E.pancakeItems(S.foods, m.planned, m.planned); dropDraft(d + 'pre'); UI.open[d + 'pre'] = true; toast(await savePancake(d, T, pi)); break; }
     case 'skipMeal': UI.open[d + el.dataset.m] = false; dropDraft(d + el.dataset.m); await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'skipped' }); UI.skipCap = null; break;
     case 'repeatMeal': { const its = yesterdayItems(d, el.dataset.m, T); if (!its) break; UI.open[d + el.dataset.m] = false; dropDraft(d + el.dataset.m);
       await emit('MEAL_SET', { date: d, mealId: el.dataset.m, status: 'edited', items: JSON.parse(JSON.stringify(its)) }); UI.skipCap = null; toast('Copiada de ayer'); break; }

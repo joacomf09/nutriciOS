@@ -19,6 +19,8 @@ export const DEFAULT_FOODS = {
   arroz:    { name: 'Arroz blanco, crudo', per100: { kcal: 360, p: 7, c: 79, f: 0.6 }, src: 'USDA' },
   lentejas: { name: 'Lentejas Hacendado (frasco, escurridas)', per100: { kcal: 89, p: 8.2, c: 10.7, f: 0.4 }, src: 'etiqueta' },
   aceite:   { name: 'Aceite de oliva', per100: { kcal: 884, p: 0, c: 0, f: 100 }, src: 'USDA' },
+  mermfresa: { name: 'Mermelada fresa 0% azúcares añadidos Hacendado', per100: { kcal: 28, p: 0.6, c: 14.8, f: 0 }, src: 'etiqueta' },
+  mermciruela: { name: 'Mermelada extra ciruela y kiwi con edulcorantes Eroski', per100: { kcal: 54, p: 0.6, c: 14, f: 0 }, src: 'etiqueta' },
   avena:    { name: 'Avena', per100: { kcal: 379, p: 13, c: 66, f: 6.5 }, src: 'USDA' },
   banana:   { name: 'Banana', per100: { kcal: 89, p: 1.1, c: 23, f: 0.3 }, unitG: 120, unitName: 'banana', src: 'USDA' },
   whey:     { name: 'Whey protein', per100: { kcal: 400, p: 80, c: 8, f: 6 }, unitG: 30, unitName: 'scoop', src: 'genérico — cargar etiqueta' },
@@ -132,7 +134,7 @@ export function reduce(state, ev) {
       if (!p.deleted) s.weights.push({ id: p.id, date: p.date, kg: p.kg, fatPct: p.fatPct ?? null, source: p.source || 'withings_body_smart' });
       s.weights.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
       break; }
-    case 'MEAL_SET': { const prev = s.mealSets[p.date]?.[p.mealId]; s._ord = (s._ord || 0) + 1; (s.mealSets[p.date] ||= {})[p.mealId] = { status: p.status, items: p.items ? clone(p.items) : null, ord: prev?.ord ?? s._ord }; break; }
+    case 'MEAL_SET': { const prev = s.mealSets[p.date]?.[p.mealId]; s._ord = (s._ord || 0) + 1; (s.mealSets[p.date] ||= {})[p.mealId] = { status: p.status, items: p.items ? clone(p.items) : null, ord: prev?.ord ?? s._ord, auto: p.auto || null }; break; }
     case 'MEAL_RESET': if (s.mealSets[p.date]) delete s.mealSets[p.date][p.mealId]; break;
     case 'OVERRIDE': (s.overrides[p.date] ||= []).push(clone(p)); break;
     case 'EXTRA': (s.extras[p.date] ||= []).push({ id: p.id, name: p.name, kcal: p.kcal, p: p.p || 0, c: p.c || 0, f: p.f || 0, estimated: !!p.estimated }); break;
@@ -636,4 +638,31 @@ export function weekPreview(state, today) {
   const goalNext = tdeeNow + (P.phaseDev[phaseAt(S, addDays(ws, 7))] ?? 0);
   return { weekStart: ws, rows, closedDays: closed.length, weighins: rows.filter(r => r.kg != null).length, intake, slopeWeek: tr.slopeWeek, trendKg: tr.trendKg, tdeeNow, implied, plan, goalNext, phase,
     ready: { days: closed.length >= P.daysClosedMin, weighins: rows.filter(r => r.kg != null).length >= P.weighinsMin } };
+}
+
+// ---------- 1.6.16: pre-entreno en versión panqueques ----------
+// Reemplaza el scoop de caseína por huevos enteros de igual proteína; avena = 20 g por huevo con tope en la del plan;
+// mermelada 60 g. Devuelve los ítems nuevos.
+export const PANCAKE = { oatPerEgg: 20, jamG: 60, jamId: 'mermfresa' };
+export function pancakeItems(foods, planItems, curItems, eggs = null) {
+  const cas = planItems.find(i => i.foodId === 'caseina'); const plOat = planItems.find(i => i.foodId === 'avena');
+  const pEgg = itemMacros(foods, { foodId: 'huevo', qty: 1, unit: 'u' }).p;
+  const pCas = cas ? itemMacros(foods, { ...cas, qty: cas.qty || 1 }).p : 24;
+  const n = eggs ?? Math.max(1, Math.round(pCas / pEgg));
+  const oatMax = plOat ? plOat.qty : 80;
+  const items = curItems.filter(i => i.foodId !== 'caseina' && i.qty > 0).map(i => ({ ...i }));
+  const set = (fid, qty, unit) => { const it = items.find(i => i.foodId === fid); if (it) it.qty = qty; else items.push({ foodId: fid, qty, unit, role: 'extra' }); };
+  set('huevo', n, 'u'); set('avena', Math.min(oatMax, PANCAKE.oatPerEgg * n), 'g');
+  if (!items.some(i => /^merm/.test(i.foodId))) set(PANCAKE.jamId, PANCAKE.jamG, 'g');
+  return items;
+}
+// Compensa en la cena el exceso de kcal: baja la proteína (pasos de 10 g, mínimo 150 g) y si no alcanza la pasta (mínimo 40 g).
+export function compensateDinner(foods, dinnerItems, extraKcal) {
+  const items = dinnerItems.map(i => ({ ...i })); let rem = extraKcal; if (rem <= 0) return { items, removed: 0 };
+  const prot = items.find(i => i.unit === 'g' && i.choices && i.role !== 'carb' && i.qty > 0);
+  const carb = items.find(i => i.role === 'carb' && i.qty > 0);
+  const k10 = it => itemMacros(foods, { ...it, qty: 10 }).kcal;
+  for (const [it, min] of [[prot, 150], [carb, 40]]) { if (!it) continue;
+    while (rem > k10(it) / 2 && it.qty - 10 >= min) { it.qty -= 10; rem -= k10(it); } }
+  return { items, removed: round(extraKcal - rem) };
 }
