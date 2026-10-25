@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.13';
+export const APP_VERSION = '1.6.14';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -1034,6 +1034,15 @@ async function migrate() {
       for (const m of meals) if (m.id === 'almuerzo') for (const it of m.items) if (it.role === 'carb' && it.qty > 70) { it.qty = 70; ch = true; }
       if (ch) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Ajuste -100 kcal: arroz del almuerzo 70 g' }]); }
     list.push(['SETTINGS', { mig1612: true }]);
+    await emitMany(list);
+  }
+  // 1.6.14: misma cantidad de carbo en almuerzo y cena (arroz = pasta) conservando kcal (pedido 25-10), hoy y futuras
+  if (!S.settings.mig1614) {
+    const list = [], dates = [...new Set([T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)])];
+    for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); const before = JSON.stringify(meals);
+      E.equalizeCarbs(S.foods, meals);
+      if (JSON.stringify(meals) !== before) list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Misma cantidad de carbo en almuerzo y cena' }]); }
+    list.push(['SETTINGS', { mig1614: true }]);
     await emitMany(list);
   }
   // 1.6.4: aceite de oliva por defecto 3 g en toda comida que lo lleve (pedido del usuario el 20-10, "de ahora en más": hoy y versiones futuras)

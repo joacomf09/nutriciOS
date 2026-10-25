@@ -414,7 +414,16 @@ export function calibrationHistory(state, today) {
 
 export function adjustMeals(foods, meals, deltaKcal) {
   const m2 = clone(meals);
-  let r = distribute(foods, m2, deltaKcal, ['carb', 'boost']);
+  // 1.6.14: primero el par almuerzo/cena (arroz = pasta), de a 10 g cada uno; el resto de carbos solo si sobra > 60 kcal
+  let pre = deltaKcal;
+  { const eq0 = equalizeCarbs(foods, m2);
+    if (eq0) { pre -= eq0.diff; const a = eq0.get('almuerzo'), c = eq0.get('cena');
+      const k10 = (itemMacros(foods, { ...a, qty: 100 }).kcal + itemMacros(foods, { ...c, qty: 100 }).kcal) / 10;
+      const lo = Math.max(a.min ?? 0, c.min ?? 0), hi = Math.min(a.max ?? 999, c.max ?? 999);
+      const n = Math.round(pre / k10), x = Math.max(lo, Math.min(hi, a.qty + 10 * n));
+      pre -= (x - a.qty) / 10 * k10; a.qty = x; c.qty = x; } }
+  const pairIds = new Set(['almuerzo', 'cena']);
+  let r = Math.abs(pre) > 60 ? distribute(foods, m2, pre, ['carb', 'boost'], m => !pairIds.has(m.id)) : { changes: [], remaining: pre };
   const all = [...r.changes]; let remaining = r.remaining; let usedNego = false;
   const apply = chs => { for (const c of chs) { const it = m2.find(m => m.id === c.mealId).items.find(i => i.foodId === c.foodId && i.qty === c.from); if (it) it.qty = c.qty; } };
   apply(r.changes);
@@ -427,7 +436,22 @@ export function adjustMeals(foods, meals, deltaKcal) {
     const r2 = distribute(foods, m2, remaining, ['nego']);
     apply(r2.changes); all.push(...r2.changes); remaining = r2.remaining; usedNego = r2.changes.length > 0;
   }
+  // 1.6.14: almuerzo y cena con la misma cantidad de carbo (arroz = pasta), conservando sus kcal, en pasos de 10 g
+  for (const id of pairIds) { const it = m2.find(m => m.id === id)?.items.find(i => i.role === 'carb' && i.unit === 'g'); const o = meals.find(m => m.id === id)?.items.find(i => i.role === 'carb' && i.unit === 'g');
+    if (it && o && o.qty !== it.qty) all.unshift({ mealId: id, foodId: it.foodId, unit: it.unit, from: o.qty, qty: it.qty }); }
   return { meals: m2, changes: all, remaining: round(remaining), leverExhausted: Math.abs(remaining) > 60, usedNego };
+}
+export function equalizeCarbs(foods, meals) {
+  const a = meals.find(m => m.id === 'almuerzo')?.items.find(i => i.role === 'carb' && i.unit === 'g');
+  const c = meals.find(m => m.id === 'cena')?.items.find(i => i.role === 'carb' && i.unit === 'g');
+  if (!a || !c || !(a.qty > 0) || !(c.qty > 0)) return null;
+  const k = it => itemMacros(foods, { ...it, qty: 100 }).kcal / 100;
+  const tot = a.qty * k(a) + c.qty * k(c);
+  const lo = Math.max(a.min ?? 0, c.min ?? 0), hi = Math.min(a.max ?? 999, c.max ?? 999);
+  const x = Math.max(lo, Math.min(hi, Math.round(tot / (k(a) + k(c)) / 10) * 10));
+  const diff = x * (k(a) + k(c)) - tot; // kcal que movió el redondeo (positivo = sumó)
+  a.qty = x; c.qty = x;
+  const r = new Map([['almuerzo', a], ['cena', c]]); r.diff = diff; return r;
 }
 
 export function fatStatus(state) {
