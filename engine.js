@@ -482,6 +482,59 @@ export function weeklyProposal(state, ws, today) {
   return { id: 'w' + ws, weekStart: ws, hist: h, phase, phaseChange, before: cur, after, deltaKcal: round(after.kcal - cur.kcal), changes: adj.changes, meals: adj.meals, why, warnings, calcVersion: CALC_VERSION };
 }
 
+// Recalcular ahora (1.6.10, pedido del usuario): ventana móvil de N días (7 o 14) que termina ayer (u hoy si ya está cerrado).
+// Incluye todos los días (también los de salida): la ventana de 14 días diluye un día atípico sin ignorarlo.
+export function rollingProposal(state, today, days = 14) {
+  const S = state.settings, P = S.params;
+  const end = dayView(state, today, today).close ? today : addDays(today, -1);
+  const start = addDays(end, -(days - 1));
+  const dvs = range(start, days).map(d => dayView(state, d, today));
+  const closed = dvs.filter(d => d.close && d.close.answer !== 'not_logged');
+  const intake = closed.length ? closed.reduce((s, d) => s + d.actual.kcal, 0) / closed.length : null;
+  const pts = dailyWeights(state, start, end);
+  const sd = theilSen(pts.map(p => ({ x: diffDays(p.date, end), y: p.kg })));
+  const slopeWeek = sd == null ? null : sd * 7;
+  const hist = calibrationHistory(state, today);
+  const before = hist.filter(x => addDays(x.weekStart, 6) < start);
+  const tdee0 = before.length ? before.at(-1).tdee : (hist[0]?.tdeePrev ?? P.tdee0);
+  const phase = phaseAt(S, today), kpk = P.kcalPerKg[phase] || 7000;
+  const minClosed = Math.ceil(days * P.daysClosedMin / 7), minW = Math.ceil(days * P.weighinsMin / 7);
+  const reasons = [];
+  if (closed.length < minClosed) reasons.push(`${closed.length}/${days} días cerrados (mín. ${minClosed})`);
+  if (pts.length < minW) reasons.push(`${pts.length} días con pesaje (mín. ${minW})`);
+  if (slopeWeek == null || intake == null) reasons.push('sin tendencia de peso o ingesta');
+  const ok = reasons.length === 0;
+  let tdee = tdee0, implied = null;
+  if (ok) {
+    implied = intake + (-slopeWeek) * kpk / 7;
+    const g = P.gBase * Math.min(1, closed.length / days) * Math.min(1, pts.length / days) * (days >= 14 ? 1.4 : 1);
+    tdee = round(tdee0 + Math.max(-P.tdeeUpdateCap, Math.min(P.tdeeUpdateCap, Math.min(1, g) * (implied - tdee0))));
+  }
+  const v = versionAt(state, today), cur = mealsTotal(state.foods, v.meals);
+  const goal = tdee + (P.phaseDev[phase] ?? 0);
+  let delta = goal - cur.kcal, reason = '';
+  const why = [`Últimos ${days} días (${start} → ${end}): ${closed.length} cerrados, ${pts.length} con pesaje.`];
+  if (intake != null) why.push(`Comiste ${round(intake)} kcal/día; peso ${slopeWeek == null ? '—' : (slopeWeek >= 0 ? '+' : '') + round(slopeWeek, 2) + ' kg/sem'}.`);
+  if (ok) why.push(`Gasto según estos datos ${round(implied)}; la app pasa de ${round(tdee0)} a ${tdee} kcal.`);
+  if (!ok) { delta = 0; reason = 'Sin cambio: ' + reasons.join('; ') + '.'; }
+  else if (Math.abs(delta) < P.deadband) { reason = `Cambio calculado ${round(delta)} kcal < banda muerta ${P.deadband}: sin cambio.`; delta = 0; }
+  else {
+    let cap = P.stepCap; const anyApplied = state.versions.some(x => x.proposalId && x.deltaKcal);
+    if (!anyApplied && P.firstStepCap) cap = Math.min(cap, P.firstStepCap);
+    const raw = delta; delta = Math.max(-cap, Math.min(cap, delta));
+    reason = `Meta de fase ${round(goal)} kcal (${PHASE_LABEL[phase]} ${P.phaseDev[phase] >= 0 ? '+' : ''}${P.phaseDev[phase]}); vigente ${round(cur.kcal)}; cambio ${round(raw)} → ${round(delta)} (tope ${cap}).`;
+  }
+  if (cur.kcal + delta < P.kcalFloor) delta = P.kcalFloor - cur.kcal;
+  why.push(reason);
+  const adj = delta ? adjustMeals(state.foods, v.meals, delta) : { meals: clone(v.meals), changes: [], remaining: 0, leverExhausted: false };
+  const after = mealsTotal(state.foods, adj.meals);
+  const kg = state.weights.length ? state.weights[state.weights.length - 1].kg : 78;
+  const warnings = [];
+  if (after.p / kg > P.proteinWarnGkg) warnings.push(`Proteína ${round(after.p / kg, 1)} g/kg (> ${P.proteinWarnGkg}): informativo.`);
+  if (adj.leverExhausted) warnings.push('Palanca agotada: faltan ' + adj.remaining + ' kcal.');
+  return { id: 'r' + today + '-' + days, rolling: days, weekStart: start, hist: { tdee, tdeePrev: tdee0, implied, intake, slopeWeek, closedDays: closed.length, weighins: pts.length, calibrable: ok }, phase, phaseChange: null, before: cur, after, deltaKcal: round(after.kcal - cur.kcal), changes: adj.changes, meals: adj.meals, why, warnings, calcVersion: CALC_VERSION };
+}
+
 // Estimado en vivo (1.5.36): la propuesta que daría la revisión de la semana en curso con los datos de hoy.
 // No emite eventos: simula un REVIEW sobre una copia del estado.
 export function liveProposal(state, today) {

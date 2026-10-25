@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.9';
+export const APP_VERSION = '1.6.10';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -489,7 +489,10 @@ function vSemana(T) {
   const days = E.range(ws, 7).map(d => E.dayView(S, d, T));
   const closed = days.filter(d => d.hasData).length;
   const wts = E.range(ws, 7).map(d => ({ d, w: S.weights.filter(x => x.date === d) }));
-  let h = vPreview(T) + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
+  let h = vPreview(T) + `<div class="card"><div class="row sp wrap"><div><h3>Recalcular ahora</h3><div class="sub">Con tus últimos días, sin esperar al lunes. Incluye todos los días (también salidas): 14 días diluye un día atípico.</div></div></div>
+    <div class="row" style="margin-top:8px"><button class="s" data-a="recalc" data-n="7">Últimos 7 días</button><button class="p s" data-a="recalc" data-n="14">Últimos 14 días</button></div></div>`
+    + (UI.proposal?.rolling ? vProposal(UI.proposal, T) : '')
+    + `<h1 style="margin-top:28px">Revisión semanal</h1><div class="sub">${dLabel(ws)} → ${dLabel(we)} · ${closed}/7 días cerrados</div>`;
   h += weekReport(ws, days, T);
   h += `<div class="card"><h3>1. Pesajes en ayunas</h3>`;
   for (const { d, w } of wts) h += `<div class="it row sp" style="margin:6px 0"><span>${dLabel(d)}</span><input style="width:110px" type="text" inputmode="decimal" step="0.01" data-wd="${d}" value="${w.length ? w[0].kg : ''}" placeholder="kg"></div>`;
@@ -497,8 +500,8 @@ function vSemana(T) {
   <div class="card"><h3>3. Contexto</h3><div class="chips" id="ctx">${['semana normal', 'viaje', 'enfermedad', 'alcohol', 'sueño malo', 'estrés'].map(c => `<button data-a="ctx" data-c="${c}" class="${(rv.context || ['semana normal']).includes(c) ? 'on' : ''}">${c}</button>`).join('')}</div><label>Nota</label><input id="note" value="${esc(rv.note || '')}">
   <label>% grasa Withings (opcional)</label><input id="fatp" type="text" inputmode="decimal" value="${rv.fatPct ?? ''}"></div>
   <button class="p" style="width:100%" data-a="calc" data-w="${ws}">Calcular propuesta</button>`;
-  const p = UI.proposal && UI.proposal.weekStart === ws ? UI.proposal : (S.reviews[ws] ? E.weeklyProposal(S, ws, T) : null);
-  if (p) h += vProposal(p, T);
+  const p = UI.proposal && !UI.proposal.rolling && UI.proposal.weekStart === ws ? UI.proposal : (S.reviews[ws] ? E.weeklyProposal(S, ws, T) : null);
+  if (p && !p.rolling) h += vProposal(p, T);
   return h + vHistory(T);
 }
 // ---------- informe de la semana cerrada (1.5.46) ----------
@@ -753,6 +756,7 @@ document.addEventListener('click', async e => {
     case 'addx': { const k = +$('#xk').value; if (k > 0) await emit('EXTRA', { date: d, id: uid(), name: $('#xn').value || 'Comida', kcal: k, p: +$('#xp').value || 0, c: +$('#xc').value || 0, f: +$('#xf').value || 0 }); break; }
     case 'delx': await emit('EXTRA_DEL', { date: d, id: el.dataset.x }); break;
     case 'ctx': el.classList.toggle('on'); break;
+    case 'recalc': { UI.proposal = E.rollingProposal(S, T, +el.dataset.n); render(); break; }
     case 'calc': {
       const ws = el.dataset.w; const list = [];
       document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseKg(inp.value); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
@@ -763,7 +767,7 @@ document.addEventListener('click', async e => {
     case 'approve': {
       const p = UI.proposal || E.weeklyProposal(S, UI.review || reviewWeek(T), T);
       const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
-      const list = [['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: p.meals, reason: `Revisión semana ${dLabel(p.weekStart)}: ${p.deltaKcal >= 0 ? '+' : ''}${p.deltaKcal} kcal`, proposalId: p.id, deltaKcal: p.deltaKcal, calcVersion: p.calcVersion }], ['DECISION', { proposalId: p.id, decision: 'approved' }]];
+      const list = [['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: p.meals, reason: `${p.rolling ? `Recálculo ${p.rolling} días` : `Revisión semana ${dLabel(p.weekStart)}`}: ${p.deltaKcal >= 0 ? '+' : ''}${p.deltaKcal} kcal`, proposalId: p.id, deltaKcal: p.deltaKcal, calcVersion: p.calcVersion }], ['DECISION', { proposalId: p.id, decision: 'approved' }]];
       if (p.phaseChange) list.push(['SETTINGS', { phases: [...S.settings.phases, { from: eff, phase: p.phaseChange }] }]);
       await emitMany(list); toast('Aprobada · vigente desde ' + dLabel(eff)); backup(); break; }
     case 'reject': { const p = UI.proposal || E.weeklyProposal(S, UI.review || reviewWeek(T), T); await emit('DECISION', { proposalId: p.id, decision: 'rejected' }); backup(); break; }
