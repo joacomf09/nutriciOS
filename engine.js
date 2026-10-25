@@ -650,7 +650,7 @@ export function pancakeItems(foods, planItems, curItems, eggs = null) {
   const pCas = cas ? itemMacros(foods, { ...cas, qty: cas.qty || 1 }).p : 24;
   const n = eggs ?? Math.max(1, Math.round(pCas / pEgg));
   const oatMax = plOat ? plOat.qty : 80;
-  const items = curItems.filter(i => i.foodId !== 'caseina' && i.qty > 0).map(i => ({ ...i }));
+  const items = curItems.filter(i => i.foodId !== 'caseina' && i.foodId !== 'pb2' && i.qty > 0) // el PB2 va solo con el batido.map(i => ({ ...i }));
   const set = (fid, qty, unit) => { const it = items.find(i => i.foodId === fid); if (it) it.qty = qty; else items.push({ foodId: fid, qty, unit, role: 'extra' }); };
   set('huevo', n, 'u'); set('avena', Math.min(oatMax, PANCAKE.oatPerEgg * n), 'g');
   if (!items.some(i => /^merm/.test(i.foodId))) set(PANCAKE.jamId, PANCAKE.jamG, 'g');
