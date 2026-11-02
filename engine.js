@@ -530,6 +530,7 @@ export function rollingProposal(state, today, days = 14) {
     const pre = mean(range(addDays(d, -7), 7).map(carbOf)), post = mean(range(d, 3).map(carbOf));
     if (pre != null && post != null && post - pre >= (P.washoutCarbG ?? 75) && (!jump || post - pre > jump.post - jump.pre)) jump = { date: d, pre: round(pre), post: round(post) };
   }
+  if (jump && jump.date <= addDays(start, 3)) jump = null; // el salto ocurrió antes/al inicio de la ventana: el glucógeno ya estaba lleno
   if (jump) jump.kg = round(Math.min(P.glycoMaxKg ?? 1, (jump.post - jump.pre) * (P.glycoKgPerG ?? 0.006)), 2);
   const adjKg = p => { if (!jump || p.date < jump.date) return p.kg; return p.kg - jump.kg * Math.min(1, (diffDays(p.date, jump.date) + 1) / 4); };
   const sd = theilSen(pts.map(p => ({ x: diffDays(p.date, end), y: adjKg(p) })));
