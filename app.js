@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.18';
+export const APP_VERSION = '1.6.19';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -897,11 +897,16 @@ document.addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
     const lines = (await f.text()).trim().split(/\r?\n/); const head = lines.shift().toLowerCase();
     if (!head.includes('weight')) { toast('No parece weight.csv de Withings'); return; }
-    const list = [];
-    for (const ln of lines) { const c = ln.split(',').map(x => x.replace(/"/g, '')); const date = c[0].slice(0, 10), kg = parseFloat(c[1]), fm = parseFloat(c[2]);
-      if (!(kg > 30)) continue; if (S.weights.some(w => w.date === date && Math.abs(w.kg - kg) < 0.005)) continue;
+    const list = []; let dup = 0, bad = 0, last = '';
+    const sep = (lines[0] || '').includes(';') && !(lines[0] || '').includes('",') ? ';' : ',';
+    const num = x => parseFloat(String(x || '').replace(/"/g, '').replace(',', '.'));
+    for (const ln of lines) { const c = (sep === ';' ? ln.split(';') : ln.match(/("[^"]*"|[^,]*)(,|$)/g).map(x => x.replace(/,$/, ''))).map(x => x.replace(/"/g, '').trim());
+      const date = c[0].slice(0, 10), kg = num(c[1]), fm = num(c[2]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(kg > 30)) { bad++; continue; } if (date > last) last = date;
+      if (S.weights.some(w => w.date === date && Math.abs(w.kg - kg) < 0.005)) { dup++; continue; }
       list.push(['WEIGHT', { id: uid(), date, kg, fatPct: fm > 0 ? E.round(fm / kg * 100, 1) : null, source: 'withings_body_smart', raw: ln }]); }
-    await emitMany(list); toast(`${list.length} mediciones importadas`);
+    await emitMany(list);
+    toast(list.length ? `${list.length} mediciones importadas` : bad && !dup ? 'No pude leer ninguna fila: mandá el archivo para revisarlo' : `0 nuevas: las ${dup} ya estaban. Último pesaje del archivo: ${last || '—'}${last && last < todayStr() ? ' (todavía no trae el de hoy)' : ''}`);
   }
 });
 
