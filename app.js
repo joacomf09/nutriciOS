@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.22';
+export const APP_VERSION = '1.6.23';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -231,14 +231,15 @@ function goalBanner(T, E_, TG) {
 
 // ---------- pista de carbos: bloque (Modificar, en vivo) ----------
 const fname = id => esc(S.foods[id]?.name.split(',')[0].toLowerCase() || id);
+const addUnit = x => x.unit === 'u' ? ' ' + (S.foods[x.foodId]?.unitName || 'u') : ' g';
 function hintBlock(h) {
   if (!h) return '';
   const u = x => x.unit === 'u' ? '' : ' g';
   const lines = h.adds
-    ? h.items.map(x => `＋ añadir ${E.round(x.dq)}${x.unit === 'u' ? ' scoop' : ' g'} ${fname(x.foodId)} (+${r0(x.kcal)} kcal)`)
+    ? h.items.map(x => `＋ añadir ${E.round(x.dq, 2)}${addUnit(x)} ${fname(x.foodId)} (+${r0(x.kcal)} kcal)`)
     : h.items.map(x => x.dq > 0 ? `${fname(x.foodId)}: ↑ +${E.round(x.dq)}${u(x)} (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `${fname(x.foodId)}: ↓ −${E.round(-x.dq)}${u(x)} (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? `${fname(x.foodId)}: ya al máximo` : x.atLimit === 'min' ? `${fname(x.foodId)}: ya al mínimo` : '').filter(Boolean);
   if (Math.abs(h.remaining) > 50) lines.push(h.dir > 0 ? `Quedan ${r0(h.remaining)} kcal sin cubrir.` : `Quedan ${r0(-h.remaining)} kcal sobre la meta.`);
-  return lines.length ? `<div class="chint">${h.dir > 0 ? 'Para llegar a la meta:' : 'Para no pasarte:'}</div>` + lines.map(l => `<div class="chint">${l}</div>`).join('') : '';
+  return lines.length ? `<div class="chint">${h.dir > 0 ? 'Para llegar a la meta:' : 'Para no pasarte:'}</div>` + lines.map(l => `<div class="chint">${l}</div>`).join('') + (h.mix ? `<div style="margin-top:6px"><button type="button" class="s" data-a="applyhint">Aplicar sugerencia</button></div>` : '') : '';
 }
 function panelItems(card, m) {
   const items = m.actualItems.map(it => ({ ...it }));
@@ -246,9 +247,23 @@ function panelItems(card, m) {
   card.querySelectorAll('.swipe.gone').forEach(r => { if (items[+r.dataset.i]) items[+r.dataset.i].qty = 0; });
   return items;
 }
+// 1.6.23: "Restantes hoy / de la semana" en vivo mientras se arma una comida en Modificar (sin guardar):
+// cuenta lo del panel como comido (reemplaza lo ya guardado de esa comida) y avisa abajo.
+function liveDebt(card, m) {
+  const T = todayStr(); if (UI.day !== T) return;
+  const el = document.querySelector('#debtcard'); if (!el) return;
+  const dv0 = E.dayView(S, T, T), mm = dv0.meals.find(x => x.id === m.id); if (!mm) return;
+  const base = dv0.eatenConfirmed.kcal - (['confirmed', 'edited', 'replaced'].includes(mm.status) ? mm.actualTot.kcal : 0);
+  const pk = E.sumItems(S.foods, panelItems(card, mm).filter(it => it.qty > 0)).kcal;
+  const today = dv0.target.kcal - (base + pk), prior = weekDebt(T).prior, week = prior + today;
+  const f = v => v >= 0 ? r0(v) + ' kcal' : 'pasado ' + r0(-v) + ' kcal';
+  el.querySelector('.dt-today').textContent = f(today); el.querySelector('.dt-week').textContent = f(week);
+  const n = el.querySelector('.dt-live'); n.style.display = ''; n.textContent = `Incluye lo que estás armando en ${mm.name.split(' (')[0]} (${r0(pk)} kcal, sin guardar).`;
+}
 function liveHint(card) {
   const box = card?.querySelector('.livehint'); if (!box) return;
   const T = todayStr(), d = UI.day, m = E.dayView(S, d, T).meals.find(x => x.id === card.dataset.meal); if (!m) return;
+  liveDebt(card, m);
   const h = E.lastMealCarbHint(S, d, T, { asPending: m.id, items: panelItems(card, m) });
   box.innerHTML = h && h.mealId === m.id ? hintBlock(h) : '';
 }
@@ -282,9 +297,9 @@ function weekDebt(T) {
 }
 function debtCard(T) {
   const x = weekDebt(T), f = v => `${v < 0 ? '+' : ''}${r0(Math.abs(v))} kcal`;
-  return `<div class="card" id="debtcard"><div class="row sp"><span>Restantes hoy</span><b class="num">${x.today >= 0 ? r0(x.today) + ' kcal' : 'pasado ' + r0(-x.today) + ' kcal'}</b></div>
-    <div class="row sp" style="margin-top:6px"><span>Restantes de la semana</span><b class="num" style="color:var(--acc)">${x.week >= 0 ? r0(x.week) + ' kcal' : 'pasado ' + r0(-x.week) + ' kcal'}</b></div>
-    <div class="sub" style="margin-top:6px">Desde el lunes: lo que faltó suma y lo que te pasaste resta (incluye hoy). De días anteriores: ${Math.abs(x.prior) < 1 ? 'al día' : x.prior > 0 ? 'te faltaron ' + r0(x.prior) + ' kcal (se suman)' : 'te pasaste ' + r0(-x.prior) + ' kcal (se restan)'}.</div></div>`;
+  return `<div class="card" id="debtcard"><div class="row sp"><span>Restantes hoy</span><b class="num dt-today">${x.today >= 0 ? r0(x.today) + ' kcal' : 'pasado ' + r0(-x.today) + ' kcal'}</b></div>
+    <div class="row sp" style="margin-top:6px"><span>Restantes de la semana</span><b class="num dt-week" style="color:var(--acc)">${x.week >= 0 ? r0(x.week) + ' kcal' : 'pasado ' + r0(-x.week) + ' kcal'}</b></div>
+    <div class="sub" style="margin-top:6px">Desde el lunes: lo que faltó suma y lo que te pasaste resta (incluye hoy). De días anteriores: ${Math.abs(x.prior) < 1 ? 'al día' : x.prior > 0 ? 'te faltaron ' + r0(x.prior) + ' kcal (se suman)' : 'te pasaste ' + r0(-x.prior) + ' kcal (se restan)'}.</div><div class="sub dt-live" style="margin-top:4px;color:var(--acc);display:none"></div></div>`;
 }
 
 function yesterdayItems(d, mid, T) {
@@ -405,7 +420,7 @@ function vHoy(T) {
   const lastMarked = dv.meals.filter(m => m.markedOrd != null && m.status !== 'skipped').sort((a, b) => b.markedOrd - a.markedOrd)[0];
   const hint = E.lastMealCarbHint(S, d, T, lastMarked && !dv.close && (UI.open[d + lastMarked.id] || (['edited', 'replaced'].includes(lastMarked.status) && !dv.meals.some(m => m.status === 'pending'))) && !dv.meals.some(m => m.status === 'pending' && m.planned.some(it => it.role === 'carb' && it.qty > 0)) ? { asPending: lastMarked.id } : {}) || null;
   const hintTxt = x => x.dq > 0 ? `↑ +${E.round(x.dq)}${x.unit === 'u' ? '' : ' g'} para llegar a la meta (+${r0(x.kcal)} kcal)` : x.dq < 0 ? `↓ −${E.round(-x.dq)}${x.unit === 'u' ? '' : ' g'} para no pasarte (−${r0(-x.kcal)} kcal)` : x.atLimit === 'max' ? 'ya al máximo' : x.atLimit === 'min' ? 'ya al mínimo' : '';
-  const addLines = () => hint?.adds ? hint.items.map(x => `<div class="chint">＋ añadir ${E.round(x.dq)}${x.unit === 'u' ? ' scoop' : ' g'} ${esc(S.foods[x.foodId].name.split(',')[0].toLowerCase())} para llegar a la meta (+${r0(x.kcal)} kcal)</div>`).join('') : '';
+  const addLines = () => hint?.adds ? hint.items.map(x => `<div class="chint">＋ añadir ${E.round(x.dq, 2)}${addUnit(x)} ${esc(S.foods[x.foodId].name.split(',')[0].toLowerCase())} para llegar a la meta (+${r0(x.kcal)} kcal)</div>`).join('') : '';
   const hintFor = (m, foodId) => { if (!hint || hint.mealId !== m.id || hint.adds) return ''; const x = hint.items.find(y => y.foodId === foodId); const t = x && hintTxt(x); return t ? `<div class="chint">${t}</div>` : ''; };
   const hintRest = () => addLines() + (Math.abs(hint.remaining) > 50 ? `<div class="chint">${hint.dir > 0 ? `Quedan ${r0(hint.remaining)} kcal que el carbo no cubre.` : `Quedan ${r0(-hint.remaining)} kcal sobre la meta que el carbo no compensa.`}</div>` : '');
   // Marcadas arriba, en el orden en que se marcaron; pendientes abajo, en el orden del plan.
@@ -712,6 +727,10 @@ document.addEventListener('click', async e => {
       const changedFood = m.status === 'replaced' || cur.some((it, i) => it.foodId !== m.actualItems[i].foodId);
       const k = d + mid; dropDraft(k);
       await emit('MEAL_SET', { date: d, mealId: mid, status: changedFood ? 'replaced' : 'edited', items }); UI.open[k] = true; render(); UI.skipCap = null; toast('Añadido'); break; }
+    case 'applyhint': { const card = el.closest('[data-meal]'), m = card && dv().meals.find(x => x.id === card.dataset.meal); if (!m) break;
+      const items = panelItems(card, m), h = E.lastMealCarbHint(S, d, T, { asPending: m.id, items: items.filter(it => it.qty > 0) }); if (!h || !h.adds) break;
+      h.items.forEach(x => { const i = items.findIndex(it => it.foodId === x.foodId), inp = i >= 0 && card.querySelector(`[data-f="qty"][data-i="${i}"]`); if (inp) inp.value = E.round((items[i].qty || 0) + x.dq, 2); });
+      liveHint(card); break; }
     case 'stp': { const inp = el.closest('.it').querySelector('input'); inp.value = Math.max(0, E.round((parseFloat(String(inp.value).replace(',', '.')) || 0) + parseFloat(el.dataset.s), 2)); { const card = el.closest('[data-meal]'); if (card?.dataset.meal === 'pre') { const m = dv().meals.find(x => x.id === 'pre');
         const fidAt = k => { const r = card.querySelector(`.swipe[data-i="${k}"]`); const s2 = r?.querySelector('[data-f="food"]'); return s2 ? s2.value : m.actualItems[k]?.foodId; };
         const live = k => { const r = card.querySelector(`.swipe[data-i="${k}"]`); return r && !r.classList.contains('gone'); };

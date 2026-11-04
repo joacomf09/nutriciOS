@@ -241,4 +241,35 @@ t('saldo: lo aplicado y comido un día anterior no se descuenta dos veces', () =
   const b1 = E.weekBank(s, '2026-10-15', '2026-10-15');
   assert.ok(Math.abs((b0 - b1) - applied) <= 15, `antes ${b0}, aplicado ${applied}, después ${b1}`);
 });
+// ---------- recena: sugerencia proporcional (1.6.23) ----------
+const recMeals = () => { const it = (foodId, unit) => ({ foodId, qty: 0, unit, role: 'fixed' });
+  return [...E.DEFAULT_MEALS, { id: 'recena', name: 'Recena (opcional)', items: [it('pb2', 'g'), it('avena', 'g'), it('caseina', 'u'), it('kiwi', 'u'), it('psyllium', 'u'), it('natilla', 'u')] }]; };
+const recState = (extraKcal, extraEv = []) => { const ids = E.DEFAULT_MEALS.map(m => m.id).filter(i => i !== 'cena');
+  const ev = [{ type: 'INIT', ts: 0, payload: { settings: E.DEFAULT_SETTINGS, foods: E.DEFAULT_FOODS, meals: recMeals() } },
+    ...ids.map(mealId => ({ type: 'MEAL_SET', payload: { date: D, mealId, status: 'confirmed' } })), { type: 'MEAL_SET', payload: { date: D, mealId: 'cena', status: 'skipped' } },
+    ...(extraKcal ? [{ type: 'EXTRA', payload: { date: D, id: 'xr', name: 'fuera', kcal: extraKcal, p: 0, c: 0, f: 0 } }] : []), ...extraEv];
+  return E.replay(ev); };
+t('recena: con cena omitida sugiere una mezcla de TODOS sus elementos y respeta topes', () => {
+  const h = E.lastMealCarbHint(recState(300), D, D);
+  assert.ok(h && h.adds && h.mix && h.mealId === 'recena');
+  const ids = h.items.map(x => x.foodId); assert.ok(ids.length >= 4, ids.join()); assert.ok(!ids.includes('psyllium'));
+  const q = id => h.items.find(x => x.foodId === id)?.qty || 0;
+  assert.ok(q('pb2') <= 36 && q('caseina') <= 1 && q('kiwi') <= 2 && q('natilla') <= 1 && q('avena') <= 120);
+  assert.ok(Math.abs(h.delta - h.covered) <= 60 || h.remaining > 0, `delta ${h.delta} cubierto ${h.covered}`);
+  assert.equal(h.remaining, E.round(h.delta - h.covered));
+});
+t('recena: reparto parejo en kcal (ningún elemento acapara)', () => {
+  const h = E.lastMealCarbHint(recState(300), D, D); const ks = h.items.map(x => x.kcal);
+  assert.ok(Math.max(...ks) <= 2.5 * Math.min(...ks) + 1, ks.join());
+});
+t('recena: si ya te pasaste no sugiere nada y es solo visual', () => {
+  const s = recState(3000); const before = JSON.stringify(s);
+  assert.equal(E.lastMealCarbHint(s, D, D), null); assert.equal(JSON.stringify(s), before);
+});
+t('recena: con asPending e ítems del panel descuenta lo ya armado', () => {
+  const s = recState(300); const h0 = E.lastMealCarbHint(s, D, D);
+  const items = h0.items.map(x => ({ foodId: x.foodId, qty: x.qty, unit: x.unit, role: 'fixed' }));
+  const h1 = E.lastMealCarbHint(s, D, D, { asPending: 'recena', items });
+  assert.ok(h1 === null || Math.abs(h1.delta) <= 90 || h1.items.every(x => x.dq <= h0.items.find(y => y.foodId === x.foodId).dq), 'tras aplicar no vuelve a sugerir lo mismo');
+});
 console.log(`\n${n} pruebas OK`);

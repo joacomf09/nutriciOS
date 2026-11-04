@@ -305,6 +305,28 @@ export function lastMealCarbHint(state, date, today, opts = {}) {
     const add = [], kc = (foodId, qty) => itemMacros(state.foods, { foodId, qty, unit: 'g' }).kcal;
     let rem = delta;
     const has = id => last.planned.filter(it => it.foodId === id).reduce((a, it) => a + (it.unit === 'u' ? it.qty * (state.foods[id]?.unitG || 0) : it.qty), 0);
+    // 1.6.23 (pedido del usuario): en la RECENA la sugerencia es una mezcla proporcional de todos sus elementos
+    // (mismo aporte de kcal por elemento, respetando pasos y topes), en vez del orden cacahuete → caseína → avena.
+    if (last.id === 'recena') {
+      const dvx = dv, natEaten = dvx.meals.some(m => m.id !== last.id && m.status !== 'skipped' && (['confirmed', 'edited', 'replaced'].includes(m.status) ? m.actualItems : m.planned).some(it => it.foodId === 'natilla' && it.qty > 0));
+      const ug = id => state.foods[id]?.unitG || 0;
+      const cand = [
+        { id: 'pb2', unit: 'g', stepG: 12, capG: 36 },
+        { id: 'caseina', unit: 'u', stepG: (ug('caseina') || 33) / 2, capG: ug('caseina') || 33 },
+        { id: 'avena', unit: 'g', stepG: 10, capG: 120 },
+        { id: 'natilla', unit: 'u', stepG: ug('natilla') || 120, capG: natEaten ? 0 : (ug('natilla') || 120) },   // 1 por día: si ya la comés/planeás en otra comida, no se sugiere
+        { id: 'kiwi', unit: 'u', stepG: ug('kiwi') || 75, capG: 2 * (ug('kiwi') || 75) }
+      ].filter(c => state.foods[c.id]).map(c => ({ ...c, kcal: kc(c.id, c.stepG), n: Math.max(0, Math.floor((c.capG - has(c.id)) / c.stepG + 1e-9)) })).filter(c => c.n > 0);
+      const got = {}; let r2 = delta;
+      for (;;) {
+        const opts = cand.filter(c => (got[c.id] || 0) < c.n && r2 >= 0.5 * c.kcal).sort((a, b) => (got[a.id] || 0) * a.kcal - (got[b.id] || 0) * b.kcal);
+        if (!opts.length) break; got[opts[0].id] = (got[opts[0].id] || 0) + 1; r2 -= opts[0].kcal;
+      }
+      const items = cand.filter(c => got[c.id]).map(c => { const g = got[c.id] * c.stepG, q = c.unit === 'u' ? round(g / (ug(c.id) || 1), 2) : g; return { foodId: c.id, unit: c.unit, from: 0, qty: q, dq: q, kcal: round(kc(c.id, g)), add: true, atLimit: null }; });
+      if (!items.length) return null;
+      const covered = items.reduce((a, x) => a + x.kcal, 0);
+      return { mealId: last.id, delta, dir: 1, projected: round(projected), target: round(dv.target.kcal), items, adds: true, covered: round(covered), remaining: round(delta - covered), mix: true };
+    }
     if (state.foods.pb2) { const per = kc('pb2', 12); const n = Math.min(Math.floor(Math.max(0, 36 - has('pb2')) / 12), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'pb2', unit: 'g', from: 0, qty: 12 * n, dq: 12 * n, kcal: round(kc('pb2', 12 * n)), add: true, atLimit: null }); rem -= kc('pb2', 12 * n); } }
     // 1.5.51: caseína (medias medidas, hasta 1 scoop en total en esa comida) entre el cacahuete y la avena
     if (state.foods.caseina && rem > P.redistTol) { const g = state.foods.caseina.unitG || 33, per = kc('caseina', g / 2); const n = Math.min(Math.floor(Math.max(0, 1 - has('caseina') / g) * 2 + 1e-9), Math.round(rem / per)); if (n > 0) { add.push({ foodId: 'caseina', unit: 'u', from: 0, qty: n / 2, dq: n / 2, kcal: round(kc('caseina', g * n / 2)), add: true, atLimit: null }); rem -= kc('caseina', g * n / 2); } }
