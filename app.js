@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.21';
+export const APP_VERSION = '1.6.22';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -148,7 +148,10 @@ function render() {
   const banner = UPD.latest && UPD.latest !== APP_VERSION ? `<div class="card hi row sp"><span>Nueva versión ${esc(UPD.latest)} disponible</span><button class="p s" data-a="update">Actualizar</button></div>` : '';
   captureDrafts();
   const before = {}; document.querySelectorAll('[data-meal]').forEach(el => before[el.dataset.meal] = el.getBoundingClientRect().top);
+  // 1.6.22: el extra personalizado sobrevive a un re-render (p. ej. al volver de otra app)
+  const cx = $('#customx'), xkeep = cx && !cx.classList.contains('hidden') ? { day: UI.day, v: ['xn', 'xk', 'xp', 'xc', 'xf'].map(id => $('#' + id)?.value ?? ''), focus: document.activeElement?.id } : null;
   $('#app').innerHTML = banner + f(T);
+  if (xkeep && xkeep.day === UI.day && $('#customx')) { $('#customx').classList.remove('hidden'); ['xn', 'xk', 'xp', 'xc', 'xf'].forEach((id, i) => { const el = $('#' + id); if (el) el.value = xkeep.v[i]; }); if (xkeep.focus && /^x[nkpcf]$/.test(xkeep.focus)) $('#' + xkeep.focus)?.focus({ preventScroll: true }); }
   animate();
   document.querySelectorAll('[data-meal]').forEach(el => { const t0 = before[el.dataset.meal]; if (t0 == null) return; const dy = t0 - el.getBoundingClientRect().top; if (Math.abs(dy) < 4) return;
     el.style.transition = 'none'; el.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)'; el.style.transform = ''; })); });
@@ -743,7 +746,7 @@ document.addEventListener('click', async e => {
     case 'ignore': el.closest('.card').remove(); break;
     case 'quick': await emit('EXTRA', { date: d, id: uid(), name: `Extra rápido +${el.dataset.k}`, kcal: +el.dataset.k, p: +el.dataset.k * 0.15 / 4, c: +el.dataset.k * 0.45 / 4, f: +el.dataset.k * 0.4 / 9, estimated: true }); break;
     case 'custom': $('#customx').classList.toggle('hidden'); break;
-    case 'addx': { const k = +$('#xk').value; if (k > 0) await emit('EXTRA', { date: d, id: uid(), name: $('#xn').value || 'Comida', kcal: k, p: +$('#xp').value || 0, c: +$('#xc').value || 0, f: +$('#xf').value || 0 }); break; }
+    case 'addx': { const k = +$('#xk').value; if (k > 0) $('#customx')?.classList.add('hidden'); else { toast('Indicá las kcal'); break; } await emit('EXTRA', { date: d, id: uid(), name: $('#xn').value || 'Comida', kcal: k, p: +$('#xp').value || 0, c: +$('#xc').value || 0, f: +$('#xf').value || 0 }); break; }
     case 'delx': await emit('EXTRA_DEL', { date: d, id: el.dataset.x }); break;
     case 'ctx': el.classList.toggle('on'); break;
     case 'recalc': { let p = E.rollingProposal(S, T, 14); if (!p.hist.calibrable) { const p7 = E.rollingProposal(S, T, 7); if (p7.hist.calibrable) { p7.why.unshift('Todavía no hay 14 días completos: se usaron los últimos 7.'); p = p7; } } UI.proposal = p; render(); break; }
