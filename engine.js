@@ -444,8 +444,18 @@ export function adjustMeals(foods, meals, deltaKcal) {
     if (eq0) { pre -= eq0.diff; const a = eq0.get('almuerzo'), c = eq0.get('cena');
       const k10 = (itemMacros(foods, { ...a, qty: 100 }).kcal + itemMacros(foods, { ...c, qty: 100 }).kcal) / 10;
       const lo = Math.max(a.min ?? 0, c.min ?? 0), hi = Math.min(a.max ?? 999, c.max ?? 999);
-      const n = Math.round(pre / k10), x = Math.max(lo, Math.min(hi, a.qty + 10 * n));
-      pre -= (x - a.qty) / 10 * k10; a.qty = x; c.qty = x; } }
+      if (pre > 0) {
+        // 1.6.23: al SUBIR se reparte de a 10 g en ronda: avena del pre → dextrosa del intra → arroz+pasta
+        const oat = m2.find(m => m.id === 'pre')?.items.find(i => i.foodId === 'avena' && i.qty > 0);
+        const dex = m2.find(m => m.id === 'intra')?.items.find(i => i.foodId === 'dextrosa' && i.qty > 0);
+        const steps = [oat && { k: itemMacros(foods, { ...oat, qty: 10 }).kcal, go: () => { oat.qty += 10; } },
+                       dex && { k: itemMacros(foods, { ...dex, qty: 10 }).kcal, go: () => { dex.qty += 10; } },
+                       { k: k10, ok: () => a.qty + 10 <= hi, go: () => { a.qty += 10; c.qty += 10; } }].filter(Boolean);
+        for (let r = 0, guard = 0; guard < 60; guard++, r++) { const st = steps[r % steps.length]; if (pre < st.k / 2) { if (steps.every(x => pre < x.k / 2)) break; continue; }
+          if (st.ok && !st.ok()) continue; st.go(); pre -= st.k; }
+      } else {
+        const n = Math.round(pre / k10), x = Math.max(lo, Math.min(hi, a.qty + 10 * n));
+        pre -= (x - a.qty) / 10 * k10; a.qty = x; c.qty = x; } } }
   const pairIds = new Set(['almuerzo', 'cena']);
   let r = Math.abs(pre) > 60 ? distribute(foods, m2, pre, ['carb', 'boost'], m => !pairIds.has(m.id)) : { changes: [], remaining: pre };
   const all = [...r.changes]; let remaining = r.remaining; let usedNego = false;
@@ -461,6 +471,8 @@ export function adjustMeals(foods, meals, deltaKcal) {
     apply(r2.changes); all.push(...r2.changes); remaining = r2.remaining; usedNego = r2.changes.length > 0;
   }
   // 1.6.14: almuerzo y cena con la misma cantidad de carbo (arroz = pasta), conservando sus kcal, en pasos de 10 g
+  for (const [mid, fid] of [['pre', 'avena'], ['intra', 'dextrosa']]) { const it = m2.find(m => m.id === mid)?.items.find(i => i.foodId === fid), o = meals.find(m => m.id === mid)?.items.find(i => i.foodId === fid);
+    if (it && o && it.qty !== o.qty && !all.some(c => c.mealId === mid && c.foodId === fid)) all.unshift({ mealId: mid, foodId: fid, unit: it.unit, from: o.qty, qty: it.qty }); }
   for (const id of pairIds) { const it = m2.find(m => m.id === id)?.items.find(i => i.role === 'carb' && i.unit === 'g'); const o = meals.find(m => m.id === id)?.items.find(i => i.role === 'carb' && i.unit === 'g');
     if (it && o && o.qty !== it.qty) all.unshift({ mealId: id, foodId: it.foodId, unit: it.unit, from: o.qty, qty: it.qty }); }
   return { meals: m2, changes: all, remaining: round(remaining), leverExhausted: Math.abs(remaining) > 60, usedNego };
