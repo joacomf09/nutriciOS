@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.24';
+export const APP_VERSION = '1.6.25';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -283,7 +283,7 @@ document.addEventListener('input', e => { if (e.target.matches('.items [data-f]'
 
 // ---------- estimado del próximo lunes (1.5.36) ----------
 function liveBlock(T, full) {
-  let p; try { p = E.rollingProposal(S, T, 14); } catch { return ''; } if (!p) return '';
+  let p; try { p = recProp(T); } catch { return ''; } if (!p) return '';
   const d = p.deltaKcal, head = !p.hist.calibrable ? 'faltan datos' : d ? `${d > 0 ? '+' : ''}${r0(d)} kcal/día` : 'sin cambio';
   return `<div class="sub" style="margin-top:6px">Ajuste según los últimos 14 días: <b style="color:var(--ink)">${head}</b> · detalle en Semana.</div>`;
 }
@@ -479,6 +479,8 @@ const mealName = id => (E.versionAt(S, UI.day).meals.find(m => m.id === id) || {
 function reviewWeek(T) { // semana a revisar: la última completa
   return E.addDays(E.weekStart(T), -7);
 }
+// 1.6.25: ventana de 21 días; si no alcanza, 14
+function recProp(T) { const p = E.rollingProposal(S, T, 21); if (p.hist.calibrable) return p; const q = E.rollingProposal(S, T, 14); return q.hist.calibrable ? q : p; }
 // ---------- SEMANA (1.6.21: rediseño minimalista, un solo motor de 14 días) ----------
 const fmtS = (v, d = 0) => (v >= 0 ? '+' : '−') + E.round(Math.abs(v), d).toLocaleString('es-ES');
 function weekBars(T, ws) {
@@ -500,7 +502,7 @@ function weekStats(T, ws) {
 function vSemana(T) {
   const P = S.settings.params, phase = E.phaseAt(S.settings, T), ws = E.weekStart(T), lws = E.addDays(ws, -7);
   const cur = weekStats(T, ws), last = weekStats(T, lws), debt = weekDebt(T), plan = E.mealsTotal(S.foods, E.versionAt(S, T).meals).kcal;
-  let p = null; try { p = E.rollingProposal(S, T, 14); } catch {}
+  let p = null; try { p = recProp(T); } catch {}
   const h14 = p?.hist || {};
   const band = { volumen: [0.1, 0.25], volumen_agresivo: [0.2, 0.4], mantenimiento: [-0.1, 0.1], deficit: [-0.7, -0.25] }[phase] || [-0.1, 0.1];
   const stat = (v, l, cls = '') => `<div><b class="${cls}">${v}</b><span>${l}</span></div>`;
@@ -516,13 +518,13 @@ function vSemana(T) {
     h += `<h2>Semana pasada · ${dLabel(lws)}</h2><div class="card"><div class="verdict">${adh}${wv ? ` · ${wv}` : ''}.</div>
       <div class="csm c2">${stat(r0(last.kcal), `kcal/día · plan ${r0(last.tgt)}`)}${stat(`${last.ok}/${last.n}`, 'días cumplidos')}
       ${stat(sl == null ? '—' : fmtS(sl, 2), `kg/sem peso · meta ${fmtS(band[0], 2)} a ${fmtS(band[1], 2)}`)}${stat(fw == null ? '—' : fmtS(fw, 2), `kg/sem grasa${fw != null && fw > (P.fatBrakeKgWk ?? 0.15) ? ' · alta' : ''}`, fw != null && fw > (P.fatBrakeKgWk ?? 0.15) ? 'wk' : '')}</div>
-      <div class="sub">Peso y grasa: tendencia de los últimos 14 días. Proteína media ${r0(last.p)} g.</div></div>`;
+      <div class="sub">Peso y grasa: tendencia de los últimos ${p?.rolling || 21} días. Proteína media ${r0(last.p)} g.</div></div>`;
   }
   // 3. ajuste
   if (p) {
     const dec = S.decisions[p.id], d = p.deltaKcal, why = p.why.slice(1);
-    h += `<h2>Ajuste</h2><div class="card ${d && !dec ? 'hi' : ''}"><div class="row sp"><div><div class="big" style="font-size:34px;line-height:1">${!h14.calibrable ? 'Sin datos' : d ? fmtS(d) + ' kcal' : 'Sin cambio'}</div>
-      <div class="sub">${h14.calibrable ? `Gasto estimado ${r0(h14.tdee)} kcal · últimos 14 días` : 'Faltan días cerrados o pesajes en los últimos 14 días'}</div></div></div>`;
+    h += `<h2>Ajuste</h2><div class="card ${d && !dec ? 'hi' : ''}"><div class="row sp"><div><div class="big" style="font-size:34px;line-height:1">${!h14.calibrable ? 'Sin datos' : d > 0 ? 'Subir ' + fmtS(d) : d < 0 ? 'Bajar ' + fmtS(d) : 'Mantener'}</div>
+      <div class="sub">${h14.calibrable ? `Recomendación de hoy · gasto estimado ${r0(h14.tdee)} kcal · últimos ${p.rolling} días` : `Faltan días cerrados o pesajes en los últimos ${p.rolling} días`}</div></div></div>`;
     if (d && p.changes.length) h += `<div class="chg">${p.changes.map(c => `<span>${esc(S.foods[c.foodId].name.split(/[,:(]/)[0].trim())} <b>${c.from}→${c.qty}${c.unit === 'u' ? '' : ' g'}</b></span>`).join('')}</div>`;
     h += `<details class="why"><summary>Por qué</summary>${why.map(w => `<div class="sub">${esc(w)}</div>`).join('')}${p.warnings.map(w => `<div class="sub" style="color:var(--warn)">${esc(w)}</div>`).join('')}</details>`;
     if (dec) h += `<div class="sub" style="margin-top:8px">Hoy: <b>${dec.decision === 'approved' ? 'aprobado' : 'rechazado'}</b>.</div>`;
@@ -768,7 +770,7 @@ document.addEventListener('click', async e => {
     case 'addx': { const k = +$('#xk').value; if (k > 0) $('#customx')?.classList.add('hidden'); else { toast('Indicá las kcal'); break; } await emit('EXTRA', { date: d, id: uid(), name: $('#xn').value || 'Comida', kcal: k, p: +$('#xp').value || 0, c: +$('#xc').value || 0, f: +$('#xf').value || 0 }); break; }
     case 'delx': await emit('EXTRA_DEL', { date: d, id: el.dataset.x }); break;
     case 'ctx': el.classList.toggle('on'); break;
-    case 'recalc': { let p = E.rollingProposal(S, T, 14); if (!p.hist.calibrable) { const p7 = E.rollingProposal(S, T, 7); if (p7.hist.calibrable) { p7.why.unshift('Todavía no hay 14 días completos: se usaron los últimos 7.'); p = p7; } } UI.proposal = p; render(); break; }
+    case 'recalc': { let p = recProp(T); if (!p.hist.calibrable) { const p7 = E.rollingProposal(S, T, 7); if (p7.hist.calibrable) { p7.why.unshift('Todavía no hay 14 días completos: se usaron los últimos 7.'); p = p7; } } UI.proposal = p; render(); break; }
     case 'calc': {
       const ws = el.dataset.w; const list = [];
       document.querySelectorAll('[data-wd]').forEach(inp => { const kg = parseKg(inp.value); const day = inp.dataset.wd; const ex = S.weights.find(w => w.date === day);
@@ -777,12 +779,12 @@ document.addEventListener('click', async e => {
       list.push(['REVIEW', { weekStart: ws, strength: +$('#sf').value || 0, swim: +$('#sn').value || 0, context: [...document.querySelectorAll('#ctx .on')].map(b => b.dataset.c), note: $('#note').value, fatPct: fatp || null }]);
       await emitMany(list); UI.proposal = E.weeklyProposal(S, ws, T); render(); break; }
     case 'approve': {
-      const p = UI.proposal || E.rollingProposal(S, T, 14);
+      const p = UI.proposal || recProp(T);
       const today = E.dayView(S, T, T); const eff = today.meals.some(m => m.touched) || today.close ? E.addDays(T, 1) : T;
       const list = [['VERSION', { id: 'v' + (S.versions.length + 1), effectiveFrom: eff, meals: p.meals, reason: `${p.rolling ? `Recálculo ${p.rolling} días` : `Revisión semana ${dLabel(p.weekStart)}`}: ${p.deltaKcal >= 0 ? '+' : ''}${p.deltaKcal} kcal`, proposalId: p.id, deltaKcal: p.deltaKcal, calcVersion: p.calcVersion }], ['DECISION', { proposalId: p.id, decision: 'approved' }]];
       if (p.phaseChange) list.push(['SETTINGS', { phases: [...S.settings.phases, { from: eff, phase: p.phaseChange }] }]);
       await emitMany(list); toast('Aprobada · vigente desde ' + dLabel(eff)); backup(); break; }
-    case 'reject': { const p = UI.proposal || E.rollingProposal(S, T, 14); await emit('DECISION', { proposalId: p.id, decision: 'rejected' }); UI.proposal = null; toast('Se mantiene el plan'); break; }
+    case 'reject': { const p = UI.proposal || recProp(T); await emit('DECISION', { proposalId: p.id, decision: 'rejected' }); UI.proposal = null; toast('Se mantiene el plan'); break; }
     case 'editPlan': UI.editPlan = JSON.parse(JSON.stringify(E.versionAt(S, T).meals)); render(); break;
     case 'cancelPlan': UI.editPlan = null; render(); break;
     case 'savePlan': {
