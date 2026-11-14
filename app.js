@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.25';
+export const APP_VERSION = '1.6.26';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -291,7 +291,7 @@ function liveBlock(T, full) {
 // ---------- restantes del día y de la semana en tiempo real (1.5.47, pedido del usuario) ----------
 function weekDebt(T) {
   const ws = E.weekStart(T); let prior = 0;
-  for (const d of E.range(ws, E.diffDays(T, ws))) { const v = E.dayView(S, d, T); prior += v.target.kcal - v.actual.kcal; }
+  for (const d of E.range(ws, E.diffDays(T, ws))) { const v = E.dayView(S, d, T); if (v.unknown) continue; /* 1.6.26: "No registré" no suma ni resta (igual que weekBank) */ prior += v.target.kcal - v.actual.kcal; }
   const dv = E.dayView(S, T, T), today = dv.target.kcal - dv.eatenConfirmed.kcal;
   return { prior, today, week: prior + today };
 }
