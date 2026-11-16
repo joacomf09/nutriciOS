@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.28';
+export const APP_VERSION = '1.6.29';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -1095,6 +1095,17 @@ async function migrate() {
       if (ar?.qty === 110 && pa?.qty === 110 && av?.qty === 80 && dx?.qty === 40) { ar.qty = 100; pa.qty = 100; av.qty = 90; dx.qty = 50;
         list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Reparto del +146: avena 90, dextrosa 50, arroz y pasta 100' }]); } }
     list.push(['SETTINGS', { mig1624: true }]);
+    await emitMany(list);
+  }
+  // 1.6.29: la suba del 16-11 se hace con 1 banana en el desayuno + avena 100; dextrosa 50 y arroz/pasta 100 (sirve haya aplicado o no la propuesta)
+  if (!S.settings.mig1629) {
+    const list = [], dates = [...new Set([T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)])];
+    for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); const g = (mid, f) => meals.find(m => m.id === mid)?.items.find(i => i.foodId === f);
+      const de = meals.find(m => m.id === 'desayuno'), ar = meals.find(m => m.id === 'almuerzo')?.items.find(i => i.role === 'carb'), pa = meals.find(m => m.id === 'cena')?.items.find(i => i.role === 'carb'), av = g('pre', 'avena'), dx = g('intra', 'dextrosa');
+      const applied = ar?.qty === 110 && pa?.qty === 110 && av?.qty === 100 && dx?.qty === 60, before = ar?.qty === 100 && pa?.qty === 100 && av?.qty === 90 && dx?.qty === 50;
+      if (de && (applied || before) && !de.items.some(i => i.foodId === 'banana')) { ar.qty = 100; pa.qty = 100; av.qty = 100; dx.qty = 50; de.items.push({ foodId: 'banana', qty: 1, unit: 'u', role: 'fixed' });
+        list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Suba +145: banana en el desayuno y avena 100' }]); } }
+    list.push(['SETTINGS', { mig1629: true }]);
     await emitMany(list);
   }
   // 1.6.4: aceite de oliva por defecto 3 g en toda comida que lo lleve (pedido del usuario el 20-10, "de ahora en más": hoy y versiones futuras)
