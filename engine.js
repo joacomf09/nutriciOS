@@ -562,7 +562,9 @@ export function rollingProposal(state, today, days = 21, opts = {}) {
   // el agua/glucógeno estimado: glycoKgPerG kg por g/día de aumento (tope glycoMaxKg), en rampa de 4 días.
   let jump = null;
   for (const d of range(start, days)) {
-    const pre = mean(range(addDays(d, -7), 7).map(carbOf)), post = mean(range(d, 3).map(carbOf));
+    const preA = range(addDays(d, -7), 7).map(carbOf), postA = range(d, 3).map(carbOf);
+    if (preA.filter(x => x != null).length < 4 || postA.some(x => x == null)) continue; // 1.6.28: un solo día alto (o días sin registrar) no es un salto sostenido
+    const pre = mean(preA), post = mean(postA);
     if (pre != null && post != null && post - pre >= (P.washoutCarbG ?? 75) && (!jump || post - pre > jump.post - jump.pre)) jump = { date: d, pre: round(pre), post: round(post) };
   }
   if (jump && jump.date <= addDays(start, 3)) jump = null; // el salto ocurrió antes/al inicio de la ventana: el glucógeno ya estaba lleno
