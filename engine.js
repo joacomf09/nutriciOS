@@ -33,6 +33,7 @@ export const DEFAULT_FOODS = {
   pb2:      { name: 'Cacahuete en polvo desgrasado Hacendado', per100: { kcal: 416, p: 46.7, c: 21, f: 13.2 }, unitG: 12, unitName: 'cda', src: 'etiqueta' },
   psyllium: { name: 'Psyllium husk (fibra) Pure Diet', per100: { kcal: 366, p: 5.3, c: 0.7, f: 1 }, unitG: 2, unitName: 'cda', src: 'etiqueta (fibra 83 g/100 g)' },
   kiwi:     { name: 'Kiwi', per100: { kcal: 61, p: 1.1, c: 14.7, f: 0.5 }, unitG: 75, unitName: 'kiwi', src: 'USDA (genérico, 1 kiwi ≈ 75 g sin piel)' },
+  naranja:  { name: 'Naranja', per100: { kcal: 47, p: 0.9, c: 11.8, f: 0.1 }, unitG: 130, unitName: 'naranja', src: 'USDA (genérico, 1 naranja mediana ≈ 130 g sin piel; fruta entera, no jugo)' },
   guacamole: { name: 'Guacamole Hacendado', per100: { kcal: 149, p: 1.9, c: 2, f: 13.7 }, src: 'etiqueta' },
   natilla:  { name: 'Natilla +Proteínas vainilla Hacendado', per100: { kcal: 76.7, p: 10, c: 5.8, f: 1.5 }, unitG: 120, unitName: 'pote', src: 'etiqueta' },
   tomate:   { name: 'Salsa de tomate (promedio Hacendado frito + Solís sofrito)', per100: { kcal: 92, p: 1.15, c: 10.8, f: 4.65 }, src: 'etiqueta (promedio)' },
