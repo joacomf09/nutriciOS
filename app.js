@@ -1,5 +1,5 @@
 import * as E from './engine.js';
-export const APP_VERSION = '1.6.33';
+export const APP_VERSION = '1.6.34';
 // ---------- actualización: compara con version.json publicado ----------
 const UPD = { latest: null, checking: false, dismissed: null };
 async function checkUpdate(manual = false) {
@@ -1106,6 +1106,17 @@ async function migrate() {
       if (de && (applied || before) && !de.items.some(i => i.foodId === 'banana')) { ar.qty = 100; pa.qty = 100; av.qty = 100; dx.qty = 50; de.items.push({ foodId: 'banana', qty: 1, unit: 'u', role: 'fixed' });
         list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Suba +145: banana en el desayuno y avena 100' }]); } }
     list.push(['SETTINGS', { mig1629: true }]);
+    await emitMany(list);
+  }
+  // 1.6.34 (pedido del usuario el 25-11, "carga en la app"): el pan del desayuno pasa de 2 rebanadas de pan 5 semillas (80 g) a 3 rebanadas
+  // del pan alemán Ketterer (25 g c/u), hoy y versiones futuras (patrón de mig1551). Solo si el desayuno todavía lleva pan5s.
+  if (!S.settings.mig1634) {
+    const list = [], dates = [...new Set([T, ...S.versions.filter(v => v.effectiveFrom > T).map(v => v.effectiveFrom)])];
+    for (const d of dates) { const meals = JSON.parse(JSON.stringify(E.versionAt(S, d).meals)); const de = meals.find(m => m.id === 'desayuno');
+      if (de && de.items.some(i => i.foodId === 'pan5s') && !de.items.some(i => i.foodId === 'vollkorn')) {
+        de.items = de.items.map(i => i.foodId === 'pan5s' ? { foodId: 'vollkorn', qty: 3, unit: 'u', role: 'fixed' } : i);
+        list.push(['VERSION', { id: 'v' + (S.versions.length + list.length + 1), effectiveFrom: d, meals, reason: 'Desayuno: pan alemán Ketterer (3 rebanadas de 25 g) en lugar de 2 rebanadas de pan 5 semillas' }]); } }
+    list.push(['SETTINGS', { mig1634: true }]);
     await emitMany(list);
   }
   // 1.6.4: aceite de oliva por defecto 3 g en toda comida que lo lleve (pedido del usuario el 20-10, "de ahora en más": hoy y versiones futuras)

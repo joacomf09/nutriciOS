@@ -72,7 +72,7 @@ export const DEFAULT_FOODS = {
 // role: fixed | carb (palanca 1) | nego (palanca 2: huevos/whey) ; unit 'g' o 'u'
 export const DEFAULT_MEALS = [
   { id: 'desayuno', name: 'Desayuno', items: [
-    { foodId: 'pan5s', qty: 2, unit: 'u', role: 'fixed' },
+    { foodId: 'vollkorn', qty: 3, unit: 'u', role: 'fixed' },
     { foodId: 'huevo', qty: 5, unit: 'u', role: 'nego', min: 3, max: 6, step: 1 },
     { foodId: 'guacamole', qty: 29, unit: 'g', role: 'fixed' },
     { foodId: 'mozza', qty: 28.6, unit: 'g', role: 'fixed' },
